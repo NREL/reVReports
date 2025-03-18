@@ -1,0 +1,29 @@
+{
+  "exclude_maps": [
+    "losses_wakes_pct"
+  ],
+  "lcoe_all_in_col": "lcoe_all_in_usd_per_mwh",
+  "lcoe_site_col": "lcoe_site_usd_per_mwh",
+  "plots": {
+    "site_lcoe_max": 90,
+    "total_lcoe_max": 120
+  },
+  "scenarios": [
+    {
+      "color": "#8856a7",
+      "name": "Baseline",
+      "source": "supply_curves/wind_vanilla/baseline_sample.csv"
+    },
+    {
+      "color": "#8c96c6",
+      "name": "Social",
+      "source": "supply_curves/wind_vanilla/social_sample.csv"
+    },
+    {
+      "color": "#b3cde3",
+      "name": "Ecological",
+      "source": "supply_curves/wind_vanilla/ecological_sample.csv"
+    }
+  ],
+  "tech": "wind"
+}

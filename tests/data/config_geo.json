@@ -1,0 +1,24 @@
+{
+  "plots": {
+    "site_lcoe_max": 80,
+    "total_lcoe_max": 120
+  },
+  "scenarios": [
+    {
+      "color": "#f03b20",
+      "name": "EGS 4.5km",
+      "source": "supply_curves/geo/egs_4500m_sample.csv"
+    },
+    {
+      "color": "#fd8d3c",
+      "name": "EGS 5.5km",
+      "source": "supply_curves/geo/egs_5500m_sample.csv"
+    },
+    {
+      "color": "#fecc5c",
+      "name": "EGS 6.5km",
+      "source": "supply_curves/geo/egs_6500m_sample.csv"
+    }
+  ],
+  "tech": "geo"
+}

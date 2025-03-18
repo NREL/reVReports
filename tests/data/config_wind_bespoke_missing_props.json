@@ -1,0 +1,17 @@
+{
+  "scenarios": [
+    {
+      "name": "Open Access",
+      "source": "supply_curves/wind_bespoke/open_access_sample.csv"
+    },
+    {
+      "name": "Reference Access",
+      "source": "supply_curves/wind_bespoke/reference_access_sample.csv"
+    },
+    {
+      "name": "Limited Access",
+      "source": "supply_curves/wind_bespoke/limited_access_sample.csv"
+    }
+  ],
+  "tech": "wind"
+}

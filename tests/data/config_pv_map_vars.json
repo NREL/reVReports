@@ -1,0 +1,52 @@
+{
+  "map_vars": [
+    {
+      "breaks": [
+        10000,
+        25000,
+        50000,
+        100000,
+        200000,
+        500000
+      ],
+      "cmap": "cool",
+      "column": "cost_spur_usd_per_mw",
+      "legend_title": "Spur Line Costs ($/MW)"
+    },
+    {
+      "breaks": [
+        10,
+        50,
+        100,
+        500,
+        1000,
+        5000
+      ],
+      "cmap": "autumn",
+      "column": "capacity_dc_mw",
+      "legend_title": "Capacity MW DC"
+    }
+  ],
+  "plots": {
+    "site_lcoe_max": 90,
+    "total_lcoe_max": 120
+  },
+  "scenarios": [
+    {
+      "color": "#f03b20",
+      "name": "Open Access",
+      "source": "supply_curves/pv/open_access_sample.csv"
+    },
+    {
+      "color": "#fd8d3c",
+      "name": "Reference Access",
+      "source": "supply_curves/pv/reference_access_sample.csv"
+    },
+    {
+      "color": "#fecc5c",
+      "name": "Limited Access",
+      "source": "supply_curves/pv/limited_access_sample.csv"
+    }
+  ],
+  "tech": "pv"
+}

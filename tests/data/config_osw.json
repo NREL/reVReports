@@ -1,0 +1,30 @@
+{
+  "cf_col": "ncf_2035",
+  "exclude_maps": [
+    "losses_wakes_pct"
+  ],
+  "lcoe_all_in_col": "all_in_lcoe_2035",
+  "lcoe_site_col": "site_lcoe_usd_per_mwh_2035",
+  "plots": {
+    "site_lcoe_max": 300,
+    "total_lcoe_max": 300
+  },
+  "scenarios": [
+    {
+      "color": "#8856a7",
+      "name": "Open Access",
+      "source": "supply_curves/osw/open_access_sample.csv"
+    },
+    {
+      "color": "#8c96c6",
+      "name": "Reference Access",
+      "source": "supply_curves/osw/reference_access_sample.csv"
+    },
+    {
+      "color": "#b3cde3",
+      "name": "Limited Access",
+      "source": "supply_curves/osw/limited_access_sample.csv"
+    }
+  ],
+  "tech": "osw"
+}

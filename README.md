@@ -2,12 +2,12 @@
 The purpose of this library is to make it very simple to create standard, report-quality graphics that summarize the key results from multiple scenarios of reV supply curves. Refer to the [Usage](USAGE.md) for documentation of how to use the library.
 
 ## Installation
-1. Clone the repo
+1. Clone the repository
     ```commandline
     git clone git@github.nrel.gov:GDS/reVReports.git
     ```
 
-2. Move into the local repo
+2. Move into the local repository
     ```command line
     cd reVReports
     ```

@@ -14,7 +14,7 @@ from reVReports.data import check_files_match
 
 def test_main(cli_runner):
     """Test main() CLI command."""
-    result = cli_runner.invoke(main)
+    result = cli_runner.invoke(main, "--help")
     assert result.exit_code == 0, f"Command failed with error {result.exception}"
 
 

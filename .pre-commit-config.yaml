@@ -3,7 +3,7 @@ repos:
     rev: 23.7.0
     hooks:
     - id: black
-      language_version: python3.9
+      language_version: python3.12
 -   repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v2.3.0
     hooks:
@@ -22,6 +22,6 @@ repos:
     -   id: pretty-format-json
         args: [--autofix, --no-sort-keys]
 -   repo: https://github.com/PyCQA/pylint
-    rev: v2.16.2
+    rev: v3.3.7
     hooks:
     -   id: pylint

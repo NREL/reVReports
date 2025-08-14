@@ -30,3 +30,6 @@ pre-commit install
 
 ## Developer Notes
 To speed up testing, tests can be run in parallel using: `pytest -n auto`.
+
+## Additional Information
+NREL Software Record number SWR-25-29.

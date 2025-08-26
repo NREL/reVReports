@@ -411,7 +411,7 @@ def plots(config_file, out_path, dpi):
                 "cost_export_usd_per_mw_ac": "Export",
                 "cost_interconnection_usd_per_mw": "POI",
                 "cost_reinforcement_usd_per_mw_ac": "Reinforcement",
-                "cost_total_trans_usd_per_mw": "Total",
+                "cost_total_trans_usd_per_mw_ac": "Total",
             }
             trans_dist_vars = {
                 "dist_export_km": "Export",

@@ -49,6 +49,7 @@ setup(
     version=VERSION,
     description=DESCRIPTION,
     long_description=README,
+    long_description_content_type='text/markdown',
     author="Michael Gleason",
     author_email="mike.gleason@nrel.gov",
     packages=find_packages(),

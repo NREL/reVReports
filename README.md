@@ -2,6 +2,23 @@
 The purpose of this library is to make it very simple to create standard, report-quality graphics that summarize the key results from multiple scenarios of reV supply curves. Refer to the [Usage](USAGE.md) for documentation of how to use the library.
 
 ## Installation
+
+###  From PyPi
+
+1. Recommended: Setup virtual environment with `conda`/`mamba`:
+    ```commandline
+    mamba env create -n reVReports
+    mamba activate reVReports
+    ```
+
+2. Install `reVReports` from PyPi:
+    ```commandline
+    pip install revreports
+    ```
+
+
+###  From Source
+
 1. Clone the repository
     ```commandline
     git clone git@github.nrel.gov:GDS/reVReports.git

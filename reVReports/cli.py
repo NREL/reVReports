@@ -436,7 +436,7 @@ def plots(config_file, out_path, dpi):
             trans_cost_vars
         )
         trans_cost_df["Cost ($/MW)"] = trans_cost_df["cost_per_mw"] / 1e6
-        trans_cost_df.replace(to_replace=np.inf, value=np.NAN, inplace=True)
+        trans_cost_df.replace(to_replace=np.inf, value=np.nan, inplace=True)
         trans_cost_df.dropna(axis=0, inplace=True)
 
         # extract transmission distance data in tidy/long format
@@ -446,7 +446,7 @@ def plots(config_file, out_path, dpi):
         trans_dist_df["Transmission Component"] = trans_dist_df["variable"].replace(
             trans_dist_vars
         )
-        trans_dist_df.replace(to_replace=np.inf, value=np.NAN, inplace=True)
+        trans_dist_df.replace(to_replace=np.inf, value=np.nan, inplace=True)
         trans_dist_df.dropna(axis=0, inplace=True)
 
         with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(

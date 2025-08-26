@@ -173,7 +173,7 @@ def test_compare_images_approx_match(data_dir):
         hash_size=64,
         max_diff_pct=0.01,
     )
-    assert matches is True
+    assert matches
 
 
 def test_compare_images_approx_no_match(data_dir):
@@ -189,7 +189,7 @@ def test_compare_images_approx_no_match(data_dir):
         hash_size=64,
         max_diff_pct=0.01,
     )
-    assert matches is False
+    assert not matches
 
 
 def test_format_graph():

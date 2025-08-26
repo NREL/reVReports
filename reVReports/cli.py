@@ -410,7 +410,7 @@ def plots(config_file, out_path, dpi):
             trans_cost_vars = {
                 "cost_export_usd_per_mw_ac": "Export",
                 "cost_interconnection_usd_per_mw": "POI",
-                "cost_reinforcement_usd_per_mw": "Reinforcement",
+                "cost_reinforcement_usd_per_mw_ac": "Reinforcement",
                 "cost_total_trans_usd_per_mw": "Total",
             }
             trans_dist_vars = {
@@ -421,7 +421,7 @@ def plots(config_file, out_path, dpi):
         else:
             trans_cost_vars = {
                 "cost_interconnection_usd_per_mw": "POI",
-                "cost_reinforcement_usd_per_mw": "Reinforcement",
+                "cost_reinforcement_usd_per_mw_ac": "Reinforcement",
                 "cost_total_trans_usd_per_mw_ac": "Total",
             }
             trans_dist_vars = {
@@ -504,7 +504,7 @@ def plots(config_file, out_path, dpi):
         },
         "trans_cost": {
             "Point-of-Interconnect Costs ($/MW)": "cost_interconnection_usd_per_mw",
-            "Reinforcement Costs ($/MW)": "cost_reinforcement_usd_per_mw",
+            "Reinforcement Costs ($/MW)": "cost_reinforcement_usd_per_mw_ac",
         },
         "Project Site Capacity (MW)": "capacity_mw",
     }

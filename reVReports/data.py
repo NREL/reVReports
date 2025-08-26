@@ -78,7 +78,7 @@ def augment_sc_df(
     """
     Augment an input supply curve dataframe with additional columns needed for
     standard plots. This function is intended for use on supply curves created with
-    reV version ≥ 0.9.
+    reV version ≥ 0.14.5.
 
     Parameters
     ----------

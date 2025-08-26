@@ -131,7 +131,7 @@ def plots(config_file, out_path, dpi):
         except KeyError as e:
             LOGGER.warning(
                 "Required columns are missing from the input supply curve. "
-                "Was your supply curve created by reV≥v0.9?"
+                "Was your supply curve created by reV≥v0.14.5?"
             )
             raise e
 

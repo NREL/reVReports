@@ -131,7 +131,7 @@ def plots(config_file, out_path, dpi):
         except KeyError as e:
             LOGGER.warning(
                 "Required columns are missing from the input supply curve. "
-                "Was your supply curve created by reV≥v0.9?"
+                "Was your supply curve created by reV≥v0.14.5?"
             )
             raise e
 
@@ -408,10 +408,10 @@ def plots(config_file, out_path, dpi):
         # extract transmission cost data in tidy/long format
         if config.tech == "osw":
             trans_cost_vars = {
-                "cost_export_usd_per_mw": "Export",
+                "cost_export_usd_per_mw_ac": "Export",
                 "cost_interconnection_usd_per_mw": "POI",
-                "cost_reinforcement_usd_per_mw": "Reinforcement",
-                "cost_total_trans_usd_per_mw": "Total",
+                "cost_reinforcement_usd_per_mw_ac": "Reinforcement",
+                "cost_total_trans_usd_per_mw_ac": "Total",
             }
             trans_dist_vars = {
                 "dist_export_km": "Export",
@@ -421,8 +421,8 @@ def plots(config_file, out_path, dpi):
         else:
             trans_cost_vars = {
                 "cost_interconnection_usd_per_mw": "POI",
-                "cost_reinforcement_usd_per_mw": "Reinforcement",
-                "cost_total_trans_usd_per_mw": "Total",
+                "cost_reinforcement_usd_per_mw_ac": "Reinforcement",
+                "cost_total_trans_usd_per_mw_ac": "Total",
             }
             trans_dist_vars = {
                 "dist_spur_km": "POI",
@@ -504,7 +504,7 @@ def plots(config_file, out_path, dpi):
         },
         "trans_cost": {
             "Point-of-Interconnect Costs ($/MW)": "cost_interconnection_usd_per_mw",
-            "Reinforcement Costs ($/MW)": "cost_reinforcement_usd_per_mw",
+            "Reinforcement Costs ($/MW)": "cost_reinforcement_usd_per_mw_ac",
         },
         "Project Site Capacity (MW)": "capacity_mw",
     }
@@ -518,7 +518,7 @@ def plots(config_file, out_path, dpi):
             "Export Cable Distance (km)": "dist_export_km"
         } | boxplot_vars["trans_dist"]
         boxplot_vars["trans_cost"] = {
-            "Export Cable Costs ($/MW)": "cost_export_usd_per_mw"
+            "Export Cable Costs ($/MW)": "cost_export_usd_per_mw_ac"
         } | boxplot_vars["trans_cost"]
 
     for label, var_map in boxplot_vars.items():
@@ -945,7 +945,7 @@ def maps(config_file, out_path, dpi):
                     "cmap": "YlGn",
                     "legend_title": "LCOT ($/MWh)",
                 },
-                "cost_export_usd_per_mw": {
+                "cost_export_usd_per_mw_ac": {
                     "breaks": [500_000, 600_000, 700_000, 800_000, 900_000, 1_000_000],
                     "cmap": "YlGn",
                     "legend_title": "Export Cable ($/MW)",

@@ -78,7 +78,7 @@ def augment_sc_df(
     """
     Augment an input supply curve dataframe with additional columns needed for
     standard plots. This function is intended for use on supply curves created with
-    reV version ≥ 0.9.
+    reV version ≥ 0.14.5.
 
     Parameters
     ----------
@@ -141,7 +141,7 @@ def augment_sc_df(
     df["lcot_pct_lcoe"] = df["lcot_usd_per_mwh"] / df[lcoe_all_in_col] * 100
 
     df["cost_interconnection_usd_per_mw"] = (
-        df["cost_spur_usd_per_mw"] + df["cost_poi_usd_per_mw"]
+        df["cost_spur_usd_per_mw_ac"] + df["cost_poi_usd_per_mw_ac"]
     )
     df["cumul_capacit_gw"] = df["capacity_mw"].cumsum() / 1000
     df["cumul_aep_twh"] = df["annual_energy_site_mwh"].cumsum() / 1000 / 1000

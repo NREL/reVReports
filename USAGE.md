@@ -98,7 +98,7 @@ Example Configuration File
   ],
   "map_vars": [
     {
-      "column": "cost_spur_usd_per_mw",
+      "column": "cost_spur_usd_per_mw_ac",
       "breaks": [10000, 25000, 50000, 100000, 200000, 500000],
       "cmap": "cool",
       "legend_title": "Spur Line Costs ($/MW)"

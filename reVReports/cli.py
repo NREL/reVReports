@@ -422,7 +422,7 @@ def plots(config_file, out_path, dpi):
             trans_cost_vars = {
                 "cost_interconnection_usd_per_mw": "POI",
                 "cost_reinforcement_usd_per_mw": "Reinforcement",
-                "cost_total_trans_usd_per_mw": "Total",
+                "cost_total_trans_usd_per_mw_ac": "Total",
             }
             trans_dist_vars = {
                 "dist_spur_km": "POI",

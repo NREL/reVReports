@@ -10,7 +10,7 @@
         500000
       ],
       "cmap": "cool",
-      "column": "cost_spur_usd_per_mw",
+      "column": "cost_spur_usd_per_mw_ac",
       "legend_title": "Spur Line Costs ($/MW)"
     },
     {

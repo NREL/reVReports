@@ -50,6 +50,7 @@ setup(
     description=DESCRIPTION,
     long_description=README,
     long_description_content_type='text/markdown',
+    license="BSD 3-Clause",
     author="Michael Gleason",
     author_email="mike.gleason@nrel.gov",
     packages=find_packages(),

@@ -15,13 +15,11 @@ The purpose of this library is to make it very simple to create standard, report
     ```commandline
     pip install revreports
     ```
-
-
 ###  From Source
 
 1. Clone the repository
     ```commandline
-    git clone git@github.nrel.gov:GDS/reVReports.git
+    git clone git@github.com:NREL/reVReports.git
     ```
 
 2. Move into the local repository

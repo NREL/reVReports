@@ -246,6 +246,7 @@ def validate_characterization_remapper(
 
 
 def _handle_category_recast(in_df, char_col, recast, lkup, cell_size_sq_km):
+    """Recast a category column using the lookup and recast options"""
     if lkup is None:
         warnings.warn(f"Skipping {char_col}: No lkup provided")
         return in_df
@@ -260,6 +261,7 @@ def _handle_category_recast(in_df, char_col, recast, lkup, cell_size_sq_km):
 
 
 def _handle_sum_recast(in_df, char_col, recast, rename, cell_size_sq_km):
+    """Recast a sum column, optionally scaling to area and renaming"""
     if recast == "area":
         in_df[f"{rename}_area_sq_km"] = in_df[char_col] * cell_size_sq_km
     elif recast is None and rename != char_col:
@@ -269,6 +271,7 @@ def _handle_sum_recast(in_df, char_col, recast, rename, cell_size_sq_km):
 
 
 def _handle_mean_recast(in_df, char_col, recast, rename):
+    """Recast a mean column, optionally scaling to area and renaming"""
     if recast == "area":
         in_df[f"{rename}_area_sq_km"] = in_df[char_col] * in_df["area_sq_km"]
     elif recast is None and rename != char_col:
@@ -278,6 +281,7 @@ def _handle_mean_recast(in_df, char_col, recast, rename):
 
 
 def _validate_lkup_rename_recast(method, lkup, rename, recast, col_name):
+    """Dispatch renaming and lookup validation based on the method"""
     if method == "category":
         _validate_lkup_rename_for_category(lkup, rename, col_name)
     elif method in {"sum", "mean"}:
@@ -289,6 +293,7 @@ def _validate_lkup_rename_recast(method, lkup, rename, recast, col_name):
 
 
 def _validate_lkup_rename_for_category(lkup, rename, col_name):
+    """Validate lookup and rename parameters for category methods"""
     if lkup is not None and not isinstance(lkup, dict):
         msg = (
             f"{col_name} - Invalid value for lkup: {lkup}. "
@@ -304,6 +309,7 @@ def _validate_lkup_rename_for_category(lkup, rename, col_name):
 
 
 def _validate_lkup_rename_for_sum_mean(method, lkup, rename, col_name):
+    """Validate rename parameters for sum and mean methods"""
     if lkup is not None:
         msg = (
             f"{col_name} - Invalid value for lkup: {lkup}. "
@@ -319,6 +325,7 @@ def _validate_lkup_rename_for_sum_mean(method, lkup, rename, col_name):
 
 
 def _validate_lkup_rename_recast_for_no_method(lkup, rename, recast, col_name):
+    """Validate parameters when no method is provided for a column"""
     if lkup is not None:
         msg = (
             f"{col_name} - Invalid value for lkup: {lkup}. "

@@ -1,0 +1,36 @@
+cff-version: 1.2.0
+title: reVReports
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - family-names: Gleason
+    given-names: Michael
+    affiliation: National Renewable Energy Laboratory
+    orcid: 'https://orcid.org/0009-0003-5916-6726'
+  - family-names: Pinchuk
+    given-names: Pavlo
+    affiliation: National Renewable Energy Laboratory
+    orcid: 'https://orcid.org/0000-0003-4736-4728'
+  - family-names: Lopez
+    given-names: Anthony
+    affiliation: National Renewable Energy Laboratory
+    orcid: 'https://orcid.org/0000-0002-5006-1675'
+identifiers:
+  - type: doi
+    value: 10.11578/dc.20250814.1
+repository-code: 'https://github.com/NREL/reVReports'
+abstract: >-
+  reVReports is a tool that simplifies the creation of standard,
+  report-quality graphics that summarize key results from one or
+  more reV supply curves.
+keywords:
+  - Energy Analysis
+  - Supply Curve
+  - Siting
+  - Visualization
+  - Geospatial
+license: BSD-3-Clause
+version: 1.0.0
+date-released: '2025-08-15'

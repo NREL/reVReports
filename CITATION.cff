@@ -20,7 +20,7 @@ authors:
 identifiers:
   - type: doi
     value: 10.11578/dc.20250814.1
-repository-code: 'https://github.com/NREL/COMPASS'
+repository-code: 'https://github.com/NREL/reVReports'
 abstract: >-
   reVReports is a tool that simplifies the creation of standard,
   report-quality graphics that summarize key results from one or

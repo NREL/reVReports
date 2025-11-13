@@ -49,10 +49,7 @@ def test_exceptions_log_uncaught_error(assert_message_was_logged):
 @pytest.mark.parametrize(
     "raise_type, catch_types",
     [
-        (
-            reVReportsKeyError,
-            [reVReportsError, KeyError, reVReportsKeyError],
-        ),
+        (reVReportsKeyError[reVReportsError, KeyError, reVReportsKeyError]),
         (
             reVReportsTypeError,
             [reVReportsError, TypeError, reVReportsTypeError],

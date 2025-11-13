@@ -11,6 +11,8 @@ on:
 jobs:
   check-changes:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: github.event_name != 'schedule'
     outputs:
       github_files: ${{ steps.filter.outputs.github_files }}

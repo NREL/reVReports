@@ -1,7 +1,9 @@
-# -*- coding: utf-8 -*-
-"""Methods for unpacking characterization data from supply curves so that the
-data can be accessed as proper columns rather than embedded JSON data.
+"""Methods for unpacking characterization data from supply curves
+
+The goal is to make it so that the data can be accessed as proper
+columns rather than embedded JSON data.
 """
+
 import json
 import warnings
 
@@ -9,11 +11,13 @@ import pandas as pd
 import tqdm
 
 
-def recast_categories(df, col, lkup, cell_size_sq_km):
-    """
-    Recast the JSON string found in ``df[col]`` to new columns in the
-    dataframe. Each element in the embedded JSON strings will become a new
-    column following the casting specified by ``lkup`` and ``cell_size_sq_km``.
+def recast_categories(df, col, lkup, cell_size_sq_km=None):
+    """Recast the JSON string found in ``df[col]``
+
+    This function recasts the JSON string in ``df[col]`` to new columns
+    in the dataframe. Each element in the embedded JSON strings will
+    become a new column following the casting specified by ``lkup`` and
+    ``cell_size_sq_km``.
 
     Parameters
     ----------
@@ -23,65 +27,70 @@ def recast_categories(df, col, lkup, cell_size_sq_km):
         Name of column in df containing embedded JSON values
         (e.g., ``"{'0': 44.3, '1': 3.7}"``).
     lkup : dict
-        Dictionary used to map keys in the JSON strings to new, more meaningful
-        names. Following the example above, this might be
-        ``{"0": "Grassland", "1": "Water"}``.This follows the same format one
-        could use for ``pandas.rename(columns=lkup)``.
-    cell_size_sq_km : [int, None]
-        Optional value indicating the cell size of the characterization data
-        being recast.
+        Dictionary used to map keys in the JSON strings to new, more
+        meaningful names. Following the example above, this might be
+        ``{"0": "Grassland", "1": "Water"}``.This follows the same
+        format one could use for ``pandas.rename(columns=lkup)``.
+    cell_size_sq_km : int, optional
+        Optional value indicating the cell size of the characterization
+        data being recast.
 
-        If specified, it has two effects. First, it will be used to convert
-        values of the JSON to values of area in units of square kilometers
-        during the recast process. Second, all recast column names specified in
-        ``lkup`` will have the suffix `_area_sq_km` added to them. Continuing
-        from the examples above, if ``cell_size_sq_km=0.0081``, the value
-        `44.3` above would be multipled by `0.0081`, producing a new value of
-        `0.35883`. This value would be stored in a new column named
-        ``"Water_area_sq_km"``.
+        If specified, it has two effects. First, it will be used to
+        convert values of the JSON to values of area in units of square
+        kilometers during the recast process. Second, all recast column
+        names specified in ``lkup`` will have the suffix `_area_sq_km`
+        added to them. Continuing from the examples above, if
+        ``cell_size_sq_km=0.0081``, the value
+        `44.3` above would be multiplied by `0.0081`, producing a new
+        value of `0.35883`. This value would be stored in a new column
+        named ``"Water_area_sq_km"``.
 
-        If not specified, which is the default, no conversion to area will be
-        applied, values from the JSON will be passed through (or filled with
-        ``0`` if missing), and column names specified in ``lkup`` will be used
-        verbatim in the output dataframe.
+        If not specified (or ``None``), no conversion to area will be
+        applied, values from the JSON will be passed through (or filled
+        with ``0`` if missing), and column names specified in ``lkup``
+        will be used verbatim in the output dataframe.
+
+        By default, ``None``.
 
     Returns
     -------
     pandas.DataFrame
-        New pandas dataframe with additional recast columns appended to the
-        input dataframe.
+        New pandas dataframe with additional recast columns appended to
+        the input dataframe.
 
     Raises
     ------
     TypeError
-        A TypeError will be raised if one or more values in ``df[col]`` is not
-        a str dtype.
+        A TypeError will be raised if one or more values in ``df[col]``
+        is not a str dtype.
     """
 
     try:
         elements = ",".join(df[col].tolist())
     except TypeError as e:
         raise TypeError(
-            f"Unable to recast column {col} to categories. " "Some values are not str."
+            f"Unable to recast column {col} to categories. "
+            "Some values are not str."
         ) from e
+
     col_data = json.loads(f"[{elements}]")
     col_df = pd.DataFrame(col_data)
     col_df.fillna(0, inplace=True)
     col_df.drop(
-        columns=[c for c in col_df.columns if c not in lkup.keys()], inplace=True
+        columns=[c for c in col_df.columns if c not in lkup.keys()],
+        inplace=True,
     )
     col_df.rename(columns=lkup, inplace=True)
     if cell_size_sq_km is not None:
         col_df *= cell_size_sq_km
         col_df.rename(
-            columns={c: f"{c}_area_sq_km" for c in col_df.columns}, inplace=True
+            columns={c: f"{c}_area_sq_km" for c in col_df.columns},
+            inplace=True,
         )
 
     col_df.index = df.index
 
-    out_df = pd.concat([df, col_df], axis=1)
-
-    return out_df
+    return pd.concat([df, col_df], axis=1)
 
 
 def unpack_characterizations(in_df, characterization_remapper, cell_size_m=90):
@@ -151,18 +160,24 @@ def unpack_characterizations(in_df, characterization_remapper, cell_size_m=90):
                 warnings.warn(f"Skipping {char_col}: No lkup provided")
             else:
                 if recast == "area":
-                    in_df = recast_categories(in_df, char_col, lkup, cell_size_sq_km)
+                    in_df = recast_categories(
+                        in_df, char_col, lkup, cell_size_sq_km
+                    )
                 elif recast is None:
                     in_df = recast_categories(in_df, char_col, lkup, None)
         elif method == "sum":
             if recast == "area":
-                in_df[f"{rename}_area_sq_km"] = in_df[char_col] * cell_size_sq_km
+                in_df[f"{rename}_area_sq_km"] = (
+                    in_df[char_col] * cell_size_sq_km
+                )
             elif recast is None:
                 if rename != char_col:
                     in_df[rename] = in_df[char_col]
         elif method == "mean":
             if recast == "area":
-                in_df[f"{rename}_area_sq_km"] = in_df[char_col] * in_df["area_sq_km"]
+                in_df[f"{rename}_area_sq_km"] = (
+                    in_df[char_col] * in_df["area_sq_km"]
+                )
             elif recast is None:
                 if rename != char_col:
                     in_df[rename] = in_df[char_col]
@@ -174,7 +189,9 @@ def unpack_characterizations(in_df, characterization_remapper, cell_size_m=90):
     return in_df
 
 
-def validate_characterization_remapper(characterization_remapper, supply_curve_df):
+def validate_characterization_remapper(
+    characterization_remapper, supply_curve_df
+):
     """
     Ensure the validity of the input characterization map. Intended for use as
     a helper function to unpack_characterizations()

@@ -1,4 +1,5 @@
-"""reVReports"""
+"""reVReports"""  # noqa
+
 from pathlib import Path
 
 from reVReports.version import __version__

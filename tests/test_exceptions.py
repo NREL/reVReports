@@ -10,8 +10,9 @@ import pytest
 
 from reVReports.exceptions import (
     reVReportsError,
-    reVReportsValueError,
+    reVReportsKeyError,
     reVReportsTypeError,
+    reVReportsValueError,
 )
 
 
@@ -49,12 +50,16 @@ def test_exceptions_log_uncaught_error(assert_message_was_logged):
     "raise_type, catch_types",
     [
         (
-            reVReportsValueError,
-            [reVReportsError, ValueError, reVReportsValueError],
+            reVReportsKeyError,
+            [reVReportsError, KeyError, reVReportsKeyError],
         ),
         (
             reVReportsTypeError,
             [reVReportsError, TypeError, reVReportsTypeError],
+        ),
+        (
+            reVReportsValueError,
+            [reVReportsError, ValueError, reVReportsValueError],
         ),
     ],
 )

@@ -1,0 +1,82 @@
+name: CodeQL
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '20 18 * * 6'
+
+jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    if: github.event_name != 'schedule'
+    outputs:
+      github_files: ${{ steps.filter.outputs.github_files }}
+      python_files: ${{ steps.filter.outputs.python_files }}
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Check for file changes
+      id: filter
+      uses: dorny/paths-filter@v3
+      with:
+        filters: |
+          github_files:
+            - '.github/**'
+          python_files:
+            - '**.py'
+
+  analyze-actions:
+    name: Analyze (actions)
+    needs: check-changes
+    if: github.event_name == 'schedule' || needs.check-changes.outputs.github_files == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: actions
+        build-mode: none
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: "/language:actions"
+
+  analyze-python:
+    name: Analyze (python)
+    needs: check-changes
+    if: github.event_name == 'schedule' || needs.check-changes.outputs.python_files == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      packages: read
+      actions: read
+      contents: read
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: python
+        build-mode: none
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v4
+      with:
+        category: "/language:python"

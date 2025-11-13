@@ -7,7 +7,7 @@ build-backend = 'setuptools.build_meta'
 
 
 [project]
-name="NREL-COMPASS"
+name="reVReports"
 dynamic = ["version"]
 description = "For creating standardized graphics to summarize/report outputs from reV supply curves."
 readme = "README.md"
@@ -24,7 +24,7 @@ classifiers=[
   "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "Natural Language :: English",
-#   "Operating System :: OS Independent",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -33,54 +33,54 @@ classifiers=[
   "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
 dependencies = [
-#   "click>=8.1.7,<9",
-#   "html5lib>=1.1,<2",
-#   "langchain-text-splitters>=1.0.0,<2",
-#   "networkx>=3.4.2,<4",
-#   "nltk>=3.9.1,<4",
-#   "nrel-elm>=0.0.34,<1",
-#   "numpy>=2.2.4,<3",
-#   "openai>=1.1.0",
-#   "pandas>=2.2.3,<3",
-#   "pdftotext>=2.2.2,<3",
-#   "playwright>=1.49.0,<1.52",  # version range required for c4ai"
-#   "pyjson5>=1.6.8,<2",
-#   "rich>=13.9.4,<14",
+    "cartopy>=0.24,<0.25",
+    "click>=8.1.7,<9",
+    "geopandas>=1.0.1,<1.1",
+    "geoplot>=0.5.1,<1",
+    "imagehash>=4.3.2,<5",
+    "matplotlib>=3.8.1,<4.0",
+    "numpy>=2.0.2,<3",
+    "pandas>=2.1.2,<3.0",
+    "pydantic>=2.4.2,<3.0",
+    "pyproj>=3.3.0,<4",
+    "seaborn>=0.13.0,<1.0",
+    "shapely>=2.0.7,<3",
+    "tabulate>=0.9.0,<1.0",
+    "tqdm>=4.66.1,<5.0",
 ]
 
 [project.optional-dependencies]
-# dev = [
-#   "jupyter>=1.0.0,<1.1",
-#   "pipreqs>=0.4.13,<0.5",
-#   "ruff>=0.13.3,<0.14",
-#   "ruff-lsp>=0.0.62,<0.0.63",
-# ]
-# test = [
-#   "flaky>=3.8.1,<4",
-#   "pytest>=8.3.3,<9",
-#   "pytest-asyncio>=0.25.2,<0.26",
-#   "pytest-cases>=3.8.6,<4",
-#   "pytest-cov>=6.0.0,<7",
-#   "pytest-mock>=3.14.0,<4",
-#   "pytest-profiling>=1.7.0,<2",
-#   "pytest-xdist>=3.6.1,<4",
-#   "snakeviz>=2.2.2,<3",
-#   "tox>=4.23.2,<5",
-# ]
-# doc = [
-#   "ghp-import>=2.1",
-#   "make>=0.1",
-#   "pydata-sphinx-theme>=0.16.1,<0.17",
-#   "sphinx-click>=5.1",
-#   "sphinx-copybutton>=0.5",
-#   "sphinx-tabs>=3.4",
-#   "sphinxcontrib-mermaid>=1.0.0",
-# ]
-# build = [
-#   "build>=1.2.2,<2",
-#   "pkginfo>=1.12.1.2,<2",
-#   "twine>=6.1.0,<7",
-# ]
+dev = [
+  "jupyter>=1.0.0,<1.1",
+  "pipreqs>=0.4.13,<0.5",
+  "ruff>=0.13.3,<0.14",
+  "ruff-lsp>=0.0.62,<0.0.63",
+]
+test = [
+  "flaky>=3.8.1,<4",
+  "pytest>=8.3.3,<9",
+  "pytest-cases>=3.8.6,<4",
+  "pytest-cov>=6.0.0,<7",
+  "pytest-mock>=3.14.0,<4",
+  "pytest-profiling>=1.7.0,<2",
+  "pytest-xdist>=3.6.1,<4",
+  "snakeviz>=2.2.2,<3",
+  "tox>=4.23.2,<5",
+]
+doc = [
+  "ghp-import>=2.1",
+  "make>=0.1",
+  "pydata-sphinx-theme>=0.16.1,<0.17",
+  "sphinx-click>=5.1",
+  "sphinx-copybutton>=0.5",
+  "sphinx-tabs>=3.4",
+  "sphinxcontrib-mermaid>=1.0.0",
+]
+build = [
+  "build>=1.2.2,<2",
+  "pkginfo>=1.12.1.2,<2",
+  "twine>=6.1.0,<7",
+]
 
 [project.scripts]
 reVReports = "reVReports.cli:main"
@@ -100,10 +100,66 @@ version = {attr = "reVReports.version.__version__"}
 
 [tool.pixi.workspace]
 name = "reVReports"
-channels = ["conda-forge"]
-platforms = ["linux-64"]
+channels = ["conda-forge", "nrel"]
+platforms = ["win-64", "osx-arm64", "osx-64", "linux-64", "linux-aarch64"]
+
+[tool.pixi.environments]
+default = { features = ["default"], solve-group = "default" }
+dev = { features = ["default", "dev", "build", "test", "doc"], solve-group = "dev" }
+test = { features = ["default", "test"], solve-group = "dev" }
+doc = { features = ["default", "doc"], solve-group = "dev" }
+build = { features = ["default", "build"], solve-group = "dev" }
+
+[tool.pixi.tasks]
+
+[tool.pixi.dependencies]
+cartopy = ">=0.24,<0.25"
+click = ">=8.1.7,<9"
+geopandas = ">=1.0.1,<1.1"
+geoplot = ">=0.5.1,<1"
+imagehash = ">=4.3.2,<5"
+matplotlib = ">=3.8.1,<4.0"
+numpy = ">=2.0.2,<3"
+pandas = ">=2.1.2,<3.0"
+pydantic = ">=2.4.2,<3.0"
+pyproj = ">=3.3.0,<4"
+seaborn = ">=0.13.0,<1.0"
+shapely = ">=2.0.7,<3"
+tabulate = ">=0.9.0,<1.0"
+tqdm = ">=4.66.1,<5.0"
 
 [tool.pixi.pypi-dependencies]
 reVReports = { path = ".", editable = true }
 
-[tool.pixi.tasks]
+[tool.pixi.feature.dev.dependencies]
+ipykernel = ">=7.1.0,<8"
+jupyter = ">=1.0.0,<1.1"
+pipreqs = ">=0.4.13,<0.5"
+ruff = ">=0.13.3,<0.14"
+ruff-lsp = ">=0.0.62,<0.0.63"
+
+[tool.pixi.feature.test.dependencies]
+flaky = ">=3.8.1,<4"
+pytest = ">=8.3.3,<9"
+pytest-cases = ">=3.8.6,<4"
+pytest-cov = ">=6.0.0,<7"
+pytest-mock = ">=3.14.0,<4"
+pytest-profiling = ">=1.7.0,<2"
+pytest-xdist = ">=3.6.1,<4"
+snakeviz = ">=2.2.2,<3"
+tox = ">=4.23.2,<5"
+
+[tool.pixi.feature.doc.dependencies]
+ghp-import = ">=2.1.0,<3"
+make = ">=4.4.1,<5"
+pydata-sphinx-theme = ">=0.16.1,<0.17"
+sphinx-click = ">=6.0.0,<7"
+sphinx-copybutton = ">=0.5.2,<0.6"
+sphinx-tabs = ">=3.4.1,<4"
+sphinxcontrib-mermaid = ">=1.0.0,<2"
+
+[tool.pixi.feature.build.dependencies]
+python-build = ">=1.2.2,<2"
+pkginfo = ">=1.12.1.2,<2"
+twine = ">=6.1.0,<7"
+uv = ">=0.8.4,<0.9"

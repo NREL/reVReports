@@ -1,5 +1,0 @@
-pre-commit
-pylint
-pytest
-pytest-cov
-pytest-xdist

@@ -20,5 +20,5 @@ class reVReportsValueError(reVReportsError, ValueError):  # noqa: N801
     """reVReports ValueError"""
 
 
-class reVReportsErrorTypeError(reVReportsError, TypeError):  # noqa: N801
+class reVReportsTypeError(reVReportsError, TypeError):  # noqa: N801
     """reVReports TypeError"""

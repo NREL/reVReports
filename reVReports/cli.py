@@ -96,112 +96,16 @@ def main(ctx, verbose):
 def plots(config_file, out_path, dpi):
     """Create standard set of report plots for input supply curves"""
 
-    LOGGER.info("Starting plot creation")
-
-    LOGGER.info("Loading configuration file %s", config_file)
-    try:
-        config = Config.from_json(config_file)
-    except ValidationError:
-        LOGGER.exception("Input configuration file failed. Exiting process.")
-        sys.exit(1)
-    LOGGER.info("Configuration file loaded.")
-
-    n_scenarios = len(config.scenarios)
-    LOGGER.info("%d supply curve scenarios will be plotted:", n_scenarios)
-    for scenario in config.scenarios:
-        LOGGER.info("\t%s: %s", scenario.name, scenario.source.name)
+    config, n_scenarios = _load_config(config_file)
 
     # make output directory (only if needed)
     out_path.mkdir(parents=False, exist_ok=True)
 
-    # load and augment data
-    LOGGER.info("Loading and augmenting supply curve data")
-    scenario_dfs = []
-    for i, scenario in tqdm.tqdm(
-        enumerate(config.scenarios), total=n_scenarios
-    ):
-        scenario_df = pd.read_csv(scenario.source)
-
-        try:
-            aug_df = augment_sc_df(
-                scenario_df,
-                scenario_name=scenario.name,
-                scenario_number=i,
-                tech=config.tech,
-                lcoe_all_in_col=config.lcoe_all_in_col,
-            )
-        except KeyError:
-            LOGGER.warning(
-                "Required columns are missing from the input supply curve. "
-                "Was your supply curve created by reV≥v0.14.5?"
-            )
-            raise
-
-        # drop sites with zero capacity
-        # (this also removes inf values for total_lcoe)
-        aug_df_w_capacity = aug_df[aug_df["capacity_mw"] > 0].copy()
-
-        scenario_dfs.append(aug_df_w_capacity)
-
-    # combine the data into a single data frame
-    all_df = pd.concat(scenario_dfs)
-    all_df = all_df.sort_values(
-        by=["scenario_number", config.lcoe_all_in_col], ascending=True
+    all_df, scenario_dfs = _load_and_augment_supply_curve_data(
+        config, n_scenarios
     )
-
-    LOGGER.info("Summary statistics:")
-    top_level_sums_df = (
-        all_df.groupby("Scenario")[
-            ["area_developable_sq_km", "capacity_mw", "annual_energy_site_mwh"]
-        ]
-        .sum()
-        .reset_index()
-    )
-    top_level_sums_df["capacity_gw"] = (
-        top_level_sums_df["capacity_mw"] / 1000.0
-    )
-    top_level_sums_df["aep_twh"] = (
-        top_level_sums_df["annual_energy_site_mwh"] / 1000.0 / 1000
-    )
-
-    sum_area_by_scenario_md = top_level_sums_df[
-        ["Scenario", "area_developable_sq_km"]
-    ].to_markdown(tablefmt="rounded_grid", floatfmt=",.0f")
-    LOGGER.info("\nDevelopable Area:\n%s", sum_area_by_scenario_md)
-
-    sum_cap_by_scenario_md = top_level_sums_df[
-        ["Scenario", "capacity_gw"]
-    ].to_markdown(tablefmt="rounded_grid", floatfmt=",.1f")
-    LOGGER.info("\nCapacity:\n%s", sum_cap_by_scenario_md)
-
-    sum_aep_by_scenario_md = top_level_sums_df[
-        ["Scenario", "aep_twh"]
-    ].to_markdown(tablefmt="rounded_grid", floatfmt=",.1f")
-    LOGGER.info("\nGeneration:\n%s", sum_aep_by_scenario_md)
-
-    # summarize state level results by scenario
-    LOGGER.info("Summarizing state level results")
-    all_df["cf_x_area"] = (
-        all_df["capacity_factor"] * all_df["area_developable_sq_km"]
-    )
-    state_sum_df = all_df.groupby(["Scenario", "state"], as_index=False)[
-        [
-            "area_developable_sq_km",
-            "capacity_mw",
-            "annual_energy_site_mwh",
-            "cf_x_area",
-        ]
-    ].sum()
-    state_sum_df["area_wt_mean_cf"] = (
-        state_sum_df["cf_x_area"] / state_sum_df["area_developable_sq_km"]
-    )
-    state_sum_df = state_sum_df.drop(columns=["cf_x_area"])
-    state_sum_df = state_sum_df.sort_values(
-        by=["state", "Scenario"], ascending=True
-    )
-    out_csv = out_path.joinpath("state_results_summary.csv")
-    LOGGER.info("Saving state level results to %s", out_csv)
-    state_sum_df.to_csv(out_csv, header=True, index=False)
+    top_level_sums_df = _display_summary_statistics(all_df)
+    _summarize_state_level_results(all_df, out_path)
 
     # create scenario palette for plotting
     scenario_palette = {}
@@ -231,7 +135,7 @@ def plots(config_file, out_path, dpi):
         wrap_labels(g, 10)
         g.set_xticks(g.get_xticks())
         g.set_xticklabels(g.get_xticklabels(), weight="bold")
-        out_image_path = out_path.joinpath("total_capacity.png")
+        out_image_path = out_path / "total_capacity.png"
         plt.tight_layout()
         g.figure.savefig(out_image_path, dpi=dpi, transparent=True)
         plt.close(fig)
@@ -261,7 +165,7 @@ def plots(config_file, out_path, dpi):
         wrap_labels(g, 10)
         g.set_xticks(g.get_xticks())
         g.set_xticklabels(g.get_xticklabels(), weight="bold")
-        out_image_path = out_path.joinpath("total_area.png")
+        out_image_path = out_path / "total_area.png"
         plt.tight_layout()
         fig.savefig(out_image_path, dpi=dpi, transparent=True)
         plt.close(fig)
@@ -370,7 +274,7 @@ def plots(config_file, out_path, dpi):
             ylabel="Levelized Cost of Energy ($/MWh)",
             move_legend_outside=True,
         )
-        out_image_path = out_path.joinpath("supply_curves.png")
+        out_image_path = out_path / "supply_curves.png"
         plt.tight_layout()
         fig.savefig(out_image_path, dpi=dpi, transparent=True)
         plt.close(fig)
@@ -403,7 +307,7 @@ def plots(config_file, out_path, dpi):
             drop_legend=False,
         )
         sns.move_legend(ax, "lower center", ncol=2, fontsize=SMALL_MEDIUM_SIZE)
-        out_image_path = out_path.joinpath("supply_curves_capacity_only.png")
+        out_image_path = out_path / "supply_curves_capacity_only.png"
         plt.tight_layout()
         fig.savefig(out_image_path, dpi=dpi, transparent=True)
         plt.close(fig)
@@ -442,7 +346,7 @@ def plots(config_file, out_path, dpi):
         if config.tech == "osw":
             g.set_yticks(g.get_yticks())
             g.set_yticklabels(g.get_yticklabels(), fontsize=10)
-        out_image_path = out_path.joinpath("regional_capacity_barchart.png")
+        out_image_path = out_path / "regional_capacity_barchart.png"
         plt.tight_layout()
         fig.savefig(out_image_path, dpi=dpi, transparent=True)
         plt.close(fig)
@@ -535,8 +439,9 @@ def plots(config_file, out_path, dpi):
             )
 
             scenario_outname = scenario_name[0].replace(" ", "_").lower()
-            out_image_path = out_path.joinpath(
-                f"transmission_cost_dist_boxplot_{scenario_outname}.png"
+            out_image_path = (
+                out_path
+                / f"transmission_cost_dist_boxplot_{scenario_outname}.png"
             )
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=dpi, transparent=True)
@@ -668,7 +573,7 @@ def plots(config_file, out_path, dpi):
         else:
             msg = "Unexpected type: expected dict or str"
             raise reVReportsTypeError(msg)
-        out_image_path = out_path.joinpath(f"{out_filename}_boxplots.png")
+        out_image_path = out_path / f"{out_filename}_boxplots.png"
         plt.tight_layout()
         fig.savefig(out_image_path, dpi=dpi, transparent=True)
         plt.close(fig)
@@ -754,7 +659,7 @@ def plots(config_file, out_path, dpi):
                 new_width = line.get_linewidth() + i * 0.75
                 line.set_linewidth(new_width)
                 legend_lines[i].set_linewidth(new_width)
-            out_image_path = out_path.joinpath(f"{x_var}_histogram.png")
+            out_image_path = out_path / f"{x_var}_histogram.png"
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=dpi, transparent=True)
             plt.close(fig)
@@ -815,9 +720,8 @@ def plots(config_file, out_path, dpi):
             if config.tech == "osw":
                 g.set_yticks(g.get_yticks())
                 g.set_yticklabels(g.get_yticklabels(), fontsize=10)
-            out_image_path = out_path.joinpath(
-                f"{x_var}_regional_boxplots.png"
-            )
+
+            out_image_path = out_path / f"{x_var}_regional_boxplots.png"
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=dpi, transparent=True)
             plt.close(fig)
@@ -853,24 +757,8 @@ def plots(config_file, out_path, dpi):
 )
 def maps(config_file, out_path, dpi):
     """Create standard set of report maps for input supply curves"""
-    LOGGER.info("Starting plot creation")
 
-    LOGGER.info("Loading configuration file %s", config_file)
-    try:
-        config = Config.from_json(config_file)
-    except ValidationError:
-        LOGGER.exception("Input configuration file failed. Exiting process.")
-        sys.exit(1)
-    LOGGER.info("Configuration file loaded.")
-
-    n_scenarios = len(config.scenarios)
-    if n_scenarios > MAX_NUM_SCENARIOS:
-        LOGGER.error("Cannot plot more than %d scenarios.", MAX_NUM_SCENARIOS)
-        sys.exit(1)
-
-    LOGGER.info("%s supply curve scenarios will be plotted:", n_scenarios)
-    for scenario in config.scenarios:
-        LOGGER.info("\t%s: %s", scenario.name, scenario.source.name)
+    config, n_scenarios = _load_config(config_file)
 
     # make output directory (only if needed)
     out_path.mkdir(parents=False, exist_ok=True)
@@ -1222,7 +1110,7 @@ def maps(config_file, out_path, dpi):
             )
 
             out_image_name = f"{map_var}.png"
-            out_image_path = out_path.joinpath(out_image_name)
+            out_image_path = out_path / out_image_name
             fig.savefig(out_image_path, dpi=dpi, transparent=True)
             plt.close(fig)
 
@@ -1283,3 +1171,117 @@ def unpack_characterizations(
 
     char_df.to_csv(out_csv, header=True, index=False)
     LOGGER.info("Command completed successfully.")
+
+
+def _load_config(config_file):
+    LOGGER.info("Starting plot creation")
+    LOGGER.info("Loading configuration file %s", config_file)
+    try:
+        config = Config.from_json(config_file)
+    except ValidationError:
+        LOGGER.exception("Input configuration file failed. Exiting process.")
+        sys.exit(1)
+    LOGGER.info("Configuration file loaded.")
+
+    n_scenarios = len(config.scenarios)
+    LOGGER.info("%d supply curve scenarios will be plotted:", n_scenarios)
+    for scenario in config.scenarios:
+        LOGGER.info("\t%s: %s", scenario.name, scenario.source.name)
+
+    return config, n_scenarios
+
+
+def _load_and_augment_supply_curve_data(config, n_scenarios):
+    LOGGER.info("Loading and augmenting supply curve data")
+    scenario_dfs = []
+    for i, scenario in tqdm.tqdm(
+        enumerate(config.scenarios), total=n_scenarios
+    ):
+        scenario_df = pd.read_csv(scenario.source)
+
+        try:
+            aug_df = augment_sc_df(
+                scenario_df,
+                scenario_name=scenario.name,
+                scenario_number=i,
+                tech=config.tech,
+                lcoe_all_in_col=config.lcoe_all_in_col,
+            )
+        except KeyError:
+            LOGGER.warning(
+                "Required columns are missing from the input supply curve. "
+                "Was your supply curve created by reV≥v0.14.5?"
+            )
+            raise
+
+        # drop sites with zero capacity
+        # (this also removes inf values for total_lcoe)
+        aug_df_w_capacity = aug_df[aug_df["capacity_mw"] > 0].copy()
+
+        scenario_dfs.append(aug_df_w_capacity)
+
+    # combine the data into a single data frame
+    all_df = pd.concat(scenario_dfs)
+    all_df = all_df.sort_values(
+        by=["scenario_number", config.lcoe_all_in_col], ascending=True
+    )
+    return all_df, scenario_dfs
+
+
+def _display_summary_statistics(all_df):
+    LOGGER.info("Summary statistics:")
+    top_level_sums_df = (
+        all_df.groupby("Scenario")[
+            ["area_developable_sq_km", "capacity_mw", "annual_energy_site_mwh"]
+        ]
+        .sum()
+        .reset_index()
+    )
+    top_level_sums_df["capacity_gw"] = (
+        top_level_sums_df["capacity_mw"] / 1000.0
+    )
+    top_level_sums_df["aep_twh"] = (
+        top_level_sums_df["annual_energy_site_mwh"] / 1000.0 / 1000
+    )
+
+    sum_area_by_scenario_md = top_level_sums_df[
+        ["Scenario", "area_developable_sq_km"]
+    ].to_markdown(tablefmt="rounded_grid", floatfmt=",.0f")
+    LOGGER.info("\nDevelopable Area:\n%s", sum_area_by_scenario_md)
+
+    sum_cap_by_scenario_md = top_level_sums_df[
+        ["Scenario", "capacity_gw"]
+    ].to_markdown(tablefmt="rounded_grid", floatfmt=",.1f")
+    LOGGER.info("\nCapacity:\n%s", sum_cap_by_scenario_md)
+
+    sum_aep_by_scenario_md = top_level_sums_df[
+        ["Scenario", "aep_twh"]
+    ].to_markdown(tablefmt="rounded_grid", floatfmt=",.1f")
+    LOGGER.info("\nGeneration:\n%s", sum_aep_by_scenario_md)
+
+    return top_level_sums_df
+
+
+def _summarize_state_level_results(all_df, out_path):
+    LOGGER.info("Summarizing state level results")
+    all_df["cf_x_area"] = (
+        all_df["capacity_factor"] * all_df["area_developable_sq_km"]
+    )
+    state_sum_df = all_df.groupby(["Scenario", "state"], as_index=False)[
+        [
+            "area_developable_sq_km",
+            "capacity_mw",
+            "annual_energy_site_mwh",
+            "cf_x_area",
+        ]
+    ].sum()
+    state_sum_df["area_wt_mean_cf"] = (
+        state_sum_df["cf_x_area"] / state_sum_df["area_developable_sq_km"]
+    )
+    state_sum_df = state_sum_df.drop(columns=["cf_x_area"])
+    state_sum_df = state_sum_df.sort_values(
+        by=["state", "Scenario"], ascending=True
+    )
+    out_csv = out_path / "state_results_summary.csv"
+    LOGGER.info("Saving state level results to %s", out_csv)
+    state_sum_df.to_csv(out_csv, header=True, index=False)

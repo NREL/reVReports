@@ -15,6 +15,7 @@ from reVReports.utilities.plots import (
     format_graph,
     wrap_labels,
     DEFAULT_RC_PARAMS,
+    DPI,
     NO_OUTLINE_RC_PARAMS,
     SMALL_SIZE,
     SMALL_MEDIUM_SIZE,
@@ -125,7 +126,7 @@ class PlotData:
 class PlotGenerator:
     """Build plots from prepared supply curve dataframes"""
 
-    def __init__(self, plot_data, out_directory, dpi):
+    def __init__(self, plot_data, out_directory, dpi=DPI):
         """
 
         Parameters
@@ -135,7 +136,7 @@ class PlotGenerator:
             dataframes.
         out_directory : pathlib.Path
             Directory where generated plot images are written.
-        dpi : int
+        dpi : int, default=300
             Resolution used when saving matplotlib figures.
         """
         self._plot_data = plot_data

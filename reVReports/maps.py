@@ -12,6 +12,7 @@ import geopandas as gpd
 from matplotlib import pyplot as plt
 
 from reVReports.configs import VALID_TECHS
+from reVReports.utilities.plots import DPI
 from reVReports.utilities.maps import (
     map_geodataframe_column,
     DEFAULT_BOUNDARIES,
@@ -145,7 +146,7 @@ class MapGenerator:
         """int: Number of configured scenarios"""
         return len(self._map_data.scenario_dfs)
 
-    def build_maps(self, map_vars, out_directory, dpi, point_size=2.0):
+    def build_maps(self, map_vars, out_directory, dpi=DPI, point_size=2.0):
         """Create scenario maps for each requested variable
 
         Parameters
@@ -154,7 +155,7 @@ class MapGenerator:
             Mapping of column names to styling metadata.
         out_directory : pathlib.Path
             Directory for saved figures.
-        dpi : int
+        dpi : int, default=300
             Output resolution for saved figures.
         point_size : float, optional
             Marker size for scenario points, by default 2.0.

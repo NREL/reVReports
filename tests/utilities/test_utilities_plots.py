@@ -18,10 +18,7 @@ from reVReports.utilities.plots import (
 
 
 def test_configure_matplotlib():
-    """
-    Check that configure_matplotlib() correctly changes the formats of negative/minus
-    sign.
-    """
+    """Check that negative/minus is correctly formatted"""
     # reset any existing settings
     matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
@@ -55,17 +52,12 @@ def test_configure_matplotlib():
     ],
 )
 def test_is_numeric(value, result):
-    """
-    Unit test for is_numeric() - loops over value/result pairs defined in fixture.
-    """
+    """Unit test for is_numeric()"""
     assert is_numeric(value) == result
 
 
 def test_wrap_labels_happy():
-    """
-    Happy path test for wrap_labels() - check that it correctly breaks up long labels
-    based on the specified width.
-    """
+    """Check that wrap_labels() correctly breaks up long labels"""
     fig, ax = plt.subplots(figsize=(4, 4))
     ax.set_xticks([0, 1, 2, 3])
     ax.set_xticklabels(
@@ -79,9 +71,7 @@ def test_wrap_labels_happy():
 
 
 def test_wrap_labels_break_long_words():
-    """
-    Test wrap_labels() handles the break_long_words argument correctly.
-    """
+    """Test wrap_labels() handles the break_long_words argument"""
     fig, ax = plt.subplots(figsize=(4, 4))
     ax.set_xticks([0, 1, 2, 3])
     ax.set_xticklabels([None, "LongLabelNumber1", "LongLabelNumber2", None])
@@ -99,14 +89,11 @@ def test_wrap_labels_break_long_words():
 
 
 def test_autoscale_x():
-    """
-    Tests that autoscale_x() correctly scales the x axis to fit the data shown on the
-    plot after the y-axis limits have been adjusted.
-    """
+    """Tests that autoscale_x() correctly scales the x axis"""
 
     limits = (0, 5)
     fig, ax = plt.subplots(figsize=(4, 4))
-    ax.scatter(range(0, 10), range(0, 10))
+    ax.scatter(range(10), range(10))
     ax.set_ylim(*limits)
     assert ax.get_xlim() != limits
     autoscale_x(ax, margin=0)
@@ -115,13 +102,10 @@ def test_autoscale_x():
 
 
 def test_autoscale_y():
-    """
-    Tests that autoscale_y() correctly scales the y axis to fit the data shown on the
-    plot after the x-axis limits have been adjusted.
-    """
+    """Tests that autoscale_y() correctly scales the y axis"""
     limits = (0, 5)
     fig, ax = plt.subplots(figsize=(4, 4))
-    ax.scatter(range(0, 10), range(0, 10))
+    ax.scatter(range(10), range(10))
     ax.set_xlim(*limits)
     assert ax.get_ylim() != limits
     autoscale_y(ax, margin=0)
@@ -130,13 +114,10 @@ def test_autoscale_y():
 
 
 def test_autoscale_y_oob():
-    """
-    Tests that autoscale_y() gracefully handles case when the there is no data within
-    the current plot limits.
-    """
+    """Tests that autoscale_y() gracefully handles no data within plot"""
     limits = (30, 40)
     fig, ax = plt.subplots(figsize=(4, 4))
-    ax.scatter(range(0, 10), range(0, 10))
+    ax.scatter(range(10), range(10))
     ax.set_xlim(*limits)
     orig_limits = ax.get_ylim()
     assert orig_limits != limits
@@ -147,13 +128,10 @@ def test_autoscale_y_oob():
 
 
 def test_autoscale_x_oob():
-    """
-    Tests that autoscale_x() gracefully handles case when the there is no data within
-    the current plot limits.
-    """
+    """Tests that autoscale_x() gracefully handles no data within plot"""
     limits = (30, 40)
     fig, ax = plt.subplots(figsize=(4, 4))
-    ax.scatter(range(0, 10), range(0, 10))
+    ax.scatter(range(10), range(10))
     ax.set_ylim(*limits)
     orig_limits = ax.get_xlim()
     assert orig_limits != limits
@@ -164,10 +142,7 @@ def test_autoscale_x_oob():
 
 
 def test_compare_images_approx_match(test_data_dir):
-    """
-    Unit test for compare_image_approx() - test that it correctly identifies
-    that an image matches itself to a high degree of sensitivity.
-    """
+    """Test compare_image_approx()"""
 
     matches, _ = compare_images_approx(
         test_data_dir / "compare" / "map_1.jpg",
@@ -179,11 +154,7 @@ def test_compare_images_approx_match(test_data_dir):
 
 
 def test_compare_images_approx_no_match(test_data_dir):
-    """
-    Unit test for compare_image_approx() - test that it correctly identifies
-    that two very similar image matches don't match when given a high degree of
-    sensitivity.
-    """
+    """Test compare_image_approx()"""
 
     matches, _ = compare_images_approx(
         test_data_dir / "compare" / "map_1.jpg",
@@ -195,14 +166,11 @@ def test_compare_images_approx_no_match(test_data_dir):
 
 
 def test_format_graph():
-    """
-    Catch-all test for format_graph() that applies various formatting options and
-    checks that they were applied via introspection of the Axes properties.
-    """
+    """Catch-all test for format_graph()"""
 
     fig, ax = plt.subplots(figsize=(4, 4))
     colors = ["red", "green", "blue"]
-    for i in range(0, 3):
+    for i in range(3):
         color = colors[i]
         x = y = np.arange(i * 3, i * 3 + 3) * 1000
         ax.scatter(x, y, c=color, label=color)
@@ -214,8 +182,8 @@ def test_format_graph():
         xlabel="X Variable",
         ylabel="Y Variable",
         autoscale_to_other_axis=True,
-        x_formatter=ticker.StrMethodFormatter("{x:,.1f}"),
-        y_formatter=ticker.StrMethodFormatter("{x:,.1f}"),
+        x_formatter=ticker.StrMethodFormatter("{x:,.1f}"),  # noqa: RUF027
+        y_formatter=ticker.StrMethodFormatter("{x:,.1f}"),  # noqa: RUF027
         legend_frame_on=False,
         move_legend_outside=True,
         drop_legend=False,

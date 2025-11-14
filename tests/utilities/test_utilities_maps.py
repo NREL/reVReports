@@ -1,4 +1,4 @@
-"""Maps unit tests"""
+"""Maps utilities tests"""
 
 import tempfile
 from pathlib import Path
@@ -356,7 +356,7 @@ def test_map_geodataframe_column_existing_ax(
             },
         )
         for panel in ax.ravel().tolist():
-            panel = map_geodataframe_column(
+            panel = map_geodataframe_column(  # noqa: PLW2901
                 supply_curve_gdf,
                 col_name,
                 background_df=background_gdf,

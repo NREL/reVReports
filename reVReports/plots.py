@@ -28,29 +28,77 @@ logger = logging.getLogger(__name__)
 
 
 class PlotData:
+    """Load and organize supply curve inputs for plotting
+
+    Parameters
+    ----------
+    config : object
+        Plotting configuration with scenario definitions and column
+        names.
+    """
+
     def __init__(self, config):
+        """Store configuration and defer data loading until needed
+
+        Parameters
+        ----------
+        config : object
+            Plotting configuration with scenario definitions and column
+            names.
+        """
         self._config = config
         self._all_df = None
         self._scenario_dfs = None
 
     @property
     def config(self):
+        """Configuration object for the current plot generation
+
+        Returns
+        -------
+        object
+            Plotting configuration with scenario definitions and column
+            names.
+        """
         return self._config
 
     @property
     def all_df(self):
+        """Combined dataframe of all scenarios with augmented fields
+
+        Returns
+        -------
+        pandas.DataFrame
+            Aggregated and augmented supply curve records for every
+            scenario.
+        """
         if self._all_df is None:
             self._load_and_augment_supply_curve_data()
         return self._all_df
 
     @property
     def scenario_dfs(self):
+        """List of per-scenario dataframes with augmented fields
+
+        Returns
+        -------
+        list of pandas.DataFrame
+            Each entry contains augmented supply curve data for one
+            scenario.
+        """
         if self._scenario_dfs is None:
             self._load_and_augment_supply_curve_data()
         return self._scenario_dfs
 
     @cached_property
     def top_level_sums_df(self):
+        """Aggregate top level metrics across scenarios
+
+        Returns
+        -------
+        pandas.DataFrame
+            Scenario level totals with capacity and annual energy sums.
+        """
         top_level_sums_df = (
             self.all_df.groupby("Scenario")[
                 [
@@ -108,7 +156,31 @@ class PlotData:
 
 
 class PlotGenerator:
+    """Build plots from prepared supply curve dataframes
+
+    Parameters
+    ----------
+    plot_data : PlotData
+        Data interface that exposes scenario and combined dataframes.
+    out_directory : pathlib.Path
+        Directory where generated plot images are written.
+    dpi : int
+        Resolution used when saving matplotlib figures.
+    """
+
     def __init__(self, plot_data, out_directory, dpi):
+        """Assign dependencies for plotting routines
+
+        Parameters
+        ----------
+        plot_data : PlotData
+            Data interface that exposes scenario and combined
+            dataframes.
+        out_directory : pathlib.Path
+            Directory where generated plot images are written.
+        dpi : int
+            Resolution used when saving matplotlib figures.
+        """
         self._plot_data = plot_data
         self._config = plot_data.config
         self.out_directory = out_directory
@@ -116,13 +188,30 @@ class PlotGenerator:
 
     @property
     def all_df(self):
+        """Combined dataframe with augmented supply curve metrics
+
+        Returns
+        -------
+        pandas.DataFrame
+            Aggregated and augmented supply curve records for every
+            scenario.
+        """
         return self._plot_data.all_df
 
     @property
     def scenario_dfs(self):
+        """Per scenario dataframes with augmented supply curve metrics
+
+        Returns
+        -------
+        list of pandas.DataFrame
+            Each entry contains augmented supply curve data for one
+            scenario.
+        """
         return self._plot_data.scenario_dfs
 
     def build_supply_curves(self):
+        """Create supply curve line plots for capacity and generation"""
         logger.info("Plotting supply curves")
         # Prepare data for plotting supply curves
         # Set up data frame we can use to plot all-in
@@ -175,8 +264,8 @@ class PlotGenerator:
             [supply_curve_total_lcoe_df, supply_curve_site_lcoe_df]
         )
 
-        # Supply curves - Two panel figure showing Cumulative Capacity by
-        # LCOE and Cumulative Generation by LCOE
+        # Supply curves - two panel figure showing cumulative capacity
+        # and generation by LCOE
         if self._config.lcoe_all_in_col != self._config.lcoe_site_col:
             sc_line_style = "LCOE Value"
         else:
@@ -275,6 +364,7 @@ class PlotGenerator:
             plt.close(fig)
 
     def build_capacity_by_region_bar_chart(self):
+        """Create bar chart of economic capacity by region"""
         logger.info("Plotting capacity by region and scenario barchart")
         # Regional capacity comparison
         # Sum the capacity by nrel region
@@ -309,6 +399,7 @@ class PlotGenerator:
                 hue="Scenario",
                 dodge=True,
                 palette=self._config.scenario_palette,
+                ax=ax,
             )
             g = format_graph(g, xlabel="Total Capacity (GW)", ylabel="Region")
             if self._config.tech == "osw":
@@ -322,6 +413,7 @@ class PlotGenerator:
             plt.close(fig)
 
     def build_transmission_box_plots(self):
+        """Create box plots of transmission costs and distances"""
         logger.info("Plotting Transmission Cost and Distance Box plots")
         for scenario_name, scenario_df in self.all_df.groupby(
             ["Scenario"], as_index=False
@@ -423,6 +515,7 @@ class PlotGenerator:
                 plt.close(fig)
 
     def build_box_plots(self):
+        """Create box plots for scenario level metrics"""
         logger.info("Plotting box plots")
         boxplot_vars = {
             "lcoe": {
@@ -564,6 +657,7 @@ class PlotGenerator:
             plt.close(fig)
 
     def build_histograms(self):
+        """Create histograms for core supply curve variables"""
         logger.info("Plotting histograms")
         hist_vars = [
             {
@@ -655,6 +749,7 @@ class PlotGenerator:
                 plt.close(fig)
 
     def build_regional_box_plots(self):
+        """Create regional box plots for key metrics"""
         logger.info("Plotting regional box plots")
         region_col = (
             "offtake_state" if self._config.tech == "osw" else "nrel_region"
@@ -728,6 +823,23 @@ class PlotGenerator:
 def make_bar_plot(
     data_df, y_col, ylabel, scenario_palette, out_image_path, dpi
 ):
+    """Create a bar plot comparing scenario totals
+
+    Parameters
+    ----------
+    data_df : pandas.DataFrame
+        Dataframe containing pre-aggregated scenario totals.
+    y_col : str
+        Column name that holds the metric to plot on the y-axis.
+    ylabel : str
+        Axis label describing the plotted metric.
+    scenario_palette : dict
+        Mapping of scenario names to palette colors, used for ordering.
+    out_image_path : pathlib.Path
+        Destination path for the saved figure.
+    dpi : int
+        Resolution used when writing the figure to disk.
+    """
     logger.info("Plotting total %s by scenario bar chart", ylabel)
     with (
         sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),

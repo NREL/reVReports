@@ -85,6 +85,7 @@ class PlotData:
         return top_level_sums_df
 
     def _load_and_augment_supply_curve_data(self):
+        """Load and augment the supply curve dataset"""
         logger.info("Loading and augmenting supply curve data")
         self._scenario_dfs = []
         for i, scenario in tqdm.tqdm(

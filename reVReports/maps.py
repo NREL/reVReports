@@ -2,7 +2,6 @@
 
 import logging
 from functools import cached_property
-import warnings
 
 import pandas as pd
 import numpy as np
@@ -13,61 +12,12 @@ from matplotlib import pyplot as plt
 
 from reVReports.configs import VALID_TECHS
 from reVReports.utilities.plots import DPI
-from reVReports.utilities.maps import (
-    map_geodataframe_column,
-    DEFAULT_BOUNDARIES,
-)
+from reVReports.utilities.maps import BOUNDARIES, map_geodataframe_column
 from reVReports.utilities.plots import SMALL_SIZE, BIGGER_SIZE, RC_FONT_PARAMS
 from reVReports.exceptions import reVReportsValueError
 
+
 logger = logging.getLogger(__name__)
-
-
-class _BoundariesData:
-    """Cached geographic boundary resources"""
-
-    @cached_property
-    def _boundaries_gdf_raw(self):
-        """geopandas.GeoDataFrame: Raw boundary geometries"""
-        return gpd.read_file(DEFAULT_BOUNDARIES).to_crs("EPSG:4326")
-
-    @cached_property
-    def _boundaries_dissolved(self):
-        """shapely.Geometry: Dissolved boundary geometry"""
-        return self._boundaries_gdf_raw.union_all()
-
-    @cached_property
-    def background_gdf(self):
-        """geopandas.GeoDataFrame: Boundaries for plotting background"""
-        return gpd.GeoDataFrame(
-            {"geometry": [self._boundaries_dissolved]},
-            crs=self._boundaries_gdf_raw.crs,
-        ).explode(index_parts=False)
-
-    @cached_property
-    def boundaries_single_part_gdf(self):
-        """geopandas.GeoDataFrame: Single-part boundary geometries"""
-        return self._boundaries_gdf_raw.explode(index_parts=True)
-
-    @cached_property
-    def map_extent(self):
-        """numpy.ndarray: Buffered extent for plotting"""
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning)
-            return self.background_gdf.buffer(0.01).total_bounds
-
-    @cached_property
-    def center_lon(self):
-        """float: Central longitude for map projections"""
-        return self._boundaries_dissolved.centroid.x
-
-    @cached_property
-    def center_lat(self):
-        """float: Central latitude for map projections"""
-        return self._boundaries_dissolved.centroid.y
-
-
-_BOUNDARIES = _BoundariesData()
 
 
 class MapData:
@@ -171,8 +121,8 @@ class MapGenerator:
                     figsize=(13, 4 * n_rows),
                     subplot_kw={
                         "projection": gplt.crs.AlbersEqualArea(
-                            central_longitude=_BOUNDARIES.center_lon,
-                            central_latitude=_BOUNDARIES.center_lat,
+                            central_longitude=BOUNDARIES.center_lon,
+                            central_latitude=BOUNDARIES.center_lat,
                         )
                     },
                 )
@@ -195,9 +145,9 @@ class MapGenerator:
                         breaks=map_settings.get("breaks"),
                         map_title=None,
                         legend_title=map_settings.get("legend_title"),
-                        background_df=_BOUNDARIES.background_gdf,
-                        boundaries_df=_BOUNDARIES.boundaries_single_part_gdf,
-                        extent=_BOUNDARIES.map_extent,
+                        background_df=BOUNDARIES.background_gdf,
+                        boundaries_df=BOUNDARIES.boundaries_single_part_gdf,
+                        extent=BOUNDARIES.map_extent,
                         layer_kwargs={
                             "s": point_size,
                             "linewidth": 0,

@@ -1,10 +1,12 @@
 """Functionality for generating maps"""
 
 import warnings
+from functools import cached_property
 
 import numpy as np
 import mapclassify as mc
 from matplotlib.patheffects import SimpleLineShadow, Normal
+import geopandas as gpd
 import geoplot as gplt
 
 from reVReports import DATA_DIR
@@ -67,6 +69,53 @@ class YBFixedBounds(np.ndarray):
     def min(self):
         """Return preset minimum value"""
         return self._preset_min
+
+
+class _BoundariesData:
+    """Cached geographic boundary resources"""
+
+    @cached_property
+    def _boundaries_gdf_raw(self):
+        """geopandas.GeoDataFrame: Raw boundary geometries"""
+        return gpd.read_file(DEFAULT_BOUNDARIES).to_crs("EPSG:4326")
+
+    @cached_property
+    def _boundaries_dissolved(self):
+        """shapely.Geometry: Dissolved boundary geometry"""
+        return self._boundaries_gdf_raw.union_all()
+
+    @cached_property
+    def background_gdf(self):
+        """geopandas.GeoDataFrame: Boundaries for plotting background"""
+        return gpd.GeoDataFrame(
+            {"geometry": [self._boundaries_dissolved]},
+            crs=self._boundaries_gdf_raw.crs,
+        ).explode(index_parts=False)
+
+    @cached_property
+    def boundaries_single_part_gdf(self):
+        """geopandas.GeoDataFrame: Single-part boundary geometries"""
+        return self._boundaries_gdf_raw.explode(index_parts=True)
+
+    @cached_property
+    def map_extent(self):
+        """numpy.ndarray: Buffered extent for plotting"""
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=UserWarning)
+            return self.background_gdf.buffer(0.01).total_bounds
+
+    @cached_property
+    def center_lon(self):
+        """float: Central longitude for map projections"""
+        return self._boundaries_dissolved.centroid.x
+
+    @cached_property
+    def center_lat(self):
+        """float: Central latitude for map projections"""
+        return self._boundaries_dissolved.centroid.y
+
+
+BOUNDARIES = _BoundariesData()
 
 
 def map_geodataframe_column(  # noqa: PLR0913, PLR0917

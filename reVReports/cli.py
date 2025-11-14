@@ -37,7 +37,7 @@ configure_matplotlib()
 )
 @click.pass_context
 def main(ctx, verbose):
-    """reVReports command line interface."""
+    """reVReports command line interface"""
     ctx.ensure_object(dict)
     if verbose:
         LOGGER.setLevel(logging.DEBUG)
@@ -72,7 +72,7 @@ def main(ctx, verbose):
     help=f"Resolution of output images in dots per inch. Default is {DPI}.",
 )
 def plots(config_file, out_path, dpi):
-    """Create standard set of report plots for input supply curves"""
+    """Create report plots for configured supply curves"""
 
     config = _load_config(config_file)
 
@@ -139,7 +139,7 @@ def plots(config_file, out_path, dpi):
     help=f"Resolution of output images in dots per inch. Default is {DPI}.",
 )
 def maps(config_file, out_path, dpi):
-    """Create standard set of report maps for input supply curves"""
+    """Create report maps for configured supply curves"""
 
     config = _load_config(config_file)
 
@@ -192,11 +192,11 @@ def maps(config_file, out_path, dpi):
 def unpack_characterizations(
     supply_curve_csv, char_map, out_csv, cell_size=90.0
 ):
-    """Unpack characterization data from the input supply curve.
+    """Unpack characterization data from the input supply curve
 
     The unpacking converts values from embedded JSON strings to new
-    standalone columns, and saves out a new version of the supply curve
-    with these columns included.
+    standalone columns, and saves a new version of the supply curve with
+    these columns included.
     """
 
     LOGGER.info("Loading supply curve data")
@@ -216,6 +216,8 @@ def unpack_characterizations(
 
 
 def _load_config(config_file):
+    """Load user configuration from disk"""
+
     LOGGER.info("Starting plot creation")
     LOGGER.info("Loading configuration file %s", config_file)
     try:
@@ -234,6 +236,8 @@ def _load_config(config_file):
 
 
 def _display_summary_statistics(plot_data):
+    """Log high level scenario metrics"""
+
     LOGGER.info("Summary statistics:")
 
     sum_area_by_scenario_md = plot_data.top_level_sums_df[
@@ -253,6 +257,8 @@ def _display_summary_statistics(plot_data):
 
 
 def _summarize_state_level_results(all_df, out_path):
+    """Write state level summary statistics"""
+
     LOGGER.info("Summarizing state level results")
     all_df["cf_x_area"] = (
         all_df["capacity_factor"] * all_df["area_developable_sq_km"]

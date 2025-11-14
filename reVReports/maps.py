@@ -178,7 +178,6 @@ class MapGenerator:
                 for i, (scenario_name, scenario_df) in enumerate(
                     self._map_data
                 ):
-                    # scenario_df = scenario_dfs[scenario_name]
                     if map_var not in scenario_df.columns:
                         err = (
                             f"{map_var} column not found in one or more input "
@@ -215,84 +214,100 @@ class MapGenerator:
                     panel.patch.set_alpha(0)
                     panel.set_title(scenario_name, y=0.88)
 
-                n_panels = len(ax.ravel())
-                min_xcoord = -0.04
-                mid_xcoord = 0.465
-                min_ycoord = 0.0
-                mid_ycoord = 0.475
-                if self.num_scenarios in {3, 4}:
-                    panel_width = 0.6
-                    panel_height = 0.52
-                    panel_dims = [panel_width, panel_height]
-
-                    lower_lefts = [
-                        [mid_xcoord, min_ycoord],
-                        [min_xcoord, min_ycoord],
-                        [mid_xcoord, mid_ycoord],
-                        [min_xcoord, mid_ycoord],
-                    ]
-                    for j in range(n_panels):
-                        coords = lower_lefts[j]
-                        ax.ravel()[-j - 1].set_position(coords + panel_dims)
-                elif self.num_scenarios in {1, 2}:
-                    ax.ravel()[0].set_position([-0.25, 0.0, 1, 1])
-                    ax.ravel()[1].set_position([0.27, 0.0, 1, 1])
-
-                if self.num_scenarios < n_panels:
-                    extra_panel = ax.ravel()[-1]
-                    legend_panel_position = extra_panel.get_position()
-                    fig.delaxes(extra_panel)
-                    legend_font_size = BIGGER_SIZE
-                    legend_loc = "center"
-                    legend_cols = 1
-                else:
-                    legend_font_size = SMALL_SIZE
-                    legend_loc = "center left"
-                    legend_cols = 3
-                    if n_rows == 2:  # noqa: PLR2004
-                        legend_panel_position = [
-                            mid_xcoord - 0.06,
-                            min_ycoord - 0.03,
-                            0.2,
-                            0.2,
-                        ]
-                    elif n_rows == 1:
-                        legend_panel_position = [
-                            mid_xcoord - 0.06,
-                            min_ycoord + 0.03,
-                            0.2,
-                            0.2,
-                        ]
-
-                legend = fig.axes[-1].get_legend()
-                legend_texts = [t.get_text() for t in legend.texts]
-                legend_handles = legend.legend_handles
-                legend.remove()
-
-                legend_panel = fig.add_subplot(alpha=0, frame_on=False)
-                legend_panel.set_axis_off()
-                legend_panel.set_position(legend_panel_position)
-
-                legend_panel.legend(
-                    legend_handles,
-                    legend_texts,
-                    frameon=False,
-                    loc=legend_loc,
-                    title=map_settings["legend_title"],
-                    ncol=legend_cols,
-                    handletextpad=-0.1,
-                    columnspacing=0,
-                    fontsize=legend_font_size,
-                    title_fontproperties={
-                        "size": legend_font_size,
-                        "weight": "bold",
-                    },
-                )
-
-                out_image_name = f"{map_var}.png"
-                out_image_path = out_directory / out_image_name
+                self._adjust_panel(fig, ax, map_settings, n_rows)
+                out_image_path = out_directory / f"{map_var}.png"
                 fig.savefig(out_image_path, dpi=dpi, transparent=True)
                 plt.close(fig)
+
+    def _adjust_panel(self, fig, ax, map_settings, n_rows):
+        n_panels = len(ax.ravel())
+        min_xcoord = -0.04
+        mid_xcoord = 0.465
+        min_ycoord = 0.0
+        mid_ycoord = 0.475
+        if self.num_scenarios in {3, 4}:
+            panel_width = 0.6
+            panel_height = 0.52
+            panel_dims = [panel_width, panel_height]
+
+            lower_lefts = [
+                [mid_xcoord, min_ycoord],
+                [min_xcoord, min_ycoord],
+                [mid_xcoord, mid_ycoord],
+                [min_xcoord, mid_ycoord],
+            ]
+            for j in range(n_panels):
+                coords = lower_lefts[j]
+                ax.ravel()[-j - 1].set_position(coords + panel_dims)
+        elif self.num_scenarios in {1, 2}:
+            ax.ravel()[0].set_position([-0.25, 0.0, 1, 1])
+            ax.ravel()[1].set_position([0.27, 0.0, 1, 1])
+
+        self._correct_legend(
+            fig,
+            map_settings,
+            ax,
+            n_panels,
+            n_rows,
+            mid_xcoord,
+            min_ycoord,
+        )
+
+    def _correct_legend(
+        self, fig, map_settings, ax, n_panels, n_rows, mid_xcoord, min_ycoord
+    ):
+        """Correct legend placement on a map figure"""
+
+        if self.num_scenarios < n_panels:
+            extra_panel = ax.ravel()[-1]
+            legend_panel_position = extra_panel.get_position()
+            fig.delaxes(extra_panel)
+            legend_font_size = BIGGER_SIZE
+            legend_loc = "center"
+            legend_cols = 1
+        else:
+            legend_font_size = SMALL_SIZE
+            legend_loc = "center left"
+            legend_cols = 3
+            if n_rows == 2:  # noqa: PLR2004
+                legend_panel_position = [
+                    mid_xcoord - 0.06,
+                    min_ycoord - 0.03,
+                    0.2,
+                    0.2,
+                ]
+            elif n_rows == 1:
+                legend_panel_position = [
+                    mid_xcoord - 0.06,
+                    min_ycoord + 0.03,
+                    0.2,
+                    0.2,
+                ]
+
+        legend = fig.axes[-1].get_legend()
+        legend_texts = [t.get_text() for t in legend.texts]
+        legend_handles = legend.legend_handles
+        legend.remove()
+
+        legend_panel = fig.add_subplot(alpha=0, frame_on=False)
+        legend_panel.set_axis_off()
+        legend_panel.set_position(legend_panel_position)
+
+        legend_panel.legend(
+            legend_handles,
+            legend_texts,
+            frameon=False,
+            loc=legend_loc,
+            title=map_settings["legend_title"],
+            ncol=legend_cols,
+            handletextpad=-0.1,
+            columnspacing=0,
+            fontsize=legend_font_size,
+            title_fontproperties={
+                "size": legend_font_size,
+                "weight": "bold",
+            },
+        )
 
 
 def configure_map_params(config):

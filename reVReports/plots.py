@@ -28,17 +28,10 @@ logger = logging.getLogger(__name__)
 
 
 class PlotData:
-    """Load and organize supply curve inputs for plotting
-
-    Parameters
-    ----------
-    config : object
-        Plotting configuration with scenario definitions and column
-        names.
-    """
+    """Load and organize supply curve inputs for plotting"""
 
     def __init__(self, config):
-        """Store configuration and defer data loading until needed
+        """
 
         Parameters
         ----------
@@ -52,53 +45,26 @@ class PlotData:
 
     @property
     def config(self):
-        """Configuration object for the current plot generation
-
-        Returns
-        -------
-        object
-            Plotting configuration with scenario definitions and column
-            names.
-        """
+        """object: Plotting configuration with scenario metadata"""
         return self._config
 
     @property
     def all_df(self):
-        """Combined dataframe of all scenarios with augmented fields
-
-        Returns
-        -------
-        pandas.DataFrame
-            Aggregated and augmented supply curve records for every
-            scenario.
-        """
+        """pandas.DataFrame: Combined augmented supply curve records"""
         if self._all_df is None:
             self._load_and_augment_supply_curve_data()
         return self._all_df
 
     @property
     def scenario_dfs(self):
-        """List of per-scenario dataframes with augmented fields
-
-        Returns
-        -------
-        list of pandas.DataFrame
-            Each entry contains augmented supply curve data for one
-            scenario.
-        """
+        """list of pandas.DataFrame: Augmented supply curve scenarios"""
         if self._scenario_dfs is None:
             self._load_and_augment_supply_curve_data()
         return self._scenario_dfs
 
     @cached_property
     def top_level_sums_df(self):
-        """Aggregate top level metrics across scenarios
-
-        Returns
-        -------
-        pandas.DataFrame
-            Scenario level totals with capacity and annual energy sums.
-        """
+        """pandas.DataFrame: Scenario totals for capacity and energy"""
         top_level_sums_df = (
             self.all_df.groupby("Scenario")[
                 [
@@ -156,20 +122,10 @@ class PlotData:
 
 
 class PlotGenerator:
-    """Build plots from prepared supply curve dataframes
-
-    Parameters
-    ----------
-    plot_data : PlotData
-        Data interface that exposes scenario and combined dataframes.
-    out_directory : pathlib.Path
-        Directory where generated plot images are written.
-    dpi : int
-        Resolution used when saving matplotlib figures.
-    """
+    """Build plots from prepared supply curve dataframes"""
 
     def __init__(self, plot_data, out_directory, dpi):
-        """Assign dependencies for plotting routines
+        """
 
         Parameters
         ----------
@@ -188,26 +144,12 @@ class PlotGenerator:
 
     @property
     def all_df(self):
-        """Combined dataframe with augmented supply curve metrics
-
-        Returns
-        -------
-        pandas.DataFrame
-            Aggregated and augmented supply curve records for every
-            scenario.
-        """
+        """pandas.DataFrame: Combined augmented supply curve records"""
         return self._plot_data.all_df
 
     @property
     def scenario_dfs(self):
-        """Per scenario dataframes with augmented supply curve metrics
-
-        Returns
-        -------
-        list of pandas.DataFrame
-            Each entry contains augmented supply curve data for one
-            scenario.
-        """
+        """list of pandas.DataFrame: Augmented supply curve scenarios"""
         return self._plot_data.scenario_dfs
 
     def build_supply_curves(self):

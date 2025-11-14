@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """reVReports command line interface"""
+
 import logging
 from pathlib import Path
 import warnings
@@ -20,7 +20,7 @@ from matplotlib import font_manager
 
 
 from reVReports import __version__
-from reVReports.configs import Config
+from reVReports.configs import Config, VALID_TECHS
 from reVReports.data import augment_sc_df, ORDERED_REGIONS
 from reVReports.maps import map_geodataframe_column, DEFAULT_BOUNDARIES
 from reVReports import characterizations
@@ -38,11 +38,13 @@ from reVReports.plots import (
     BIGGER_SIZE,
     RC_FONT_PARAMS,
 )
+from reVReports.exceptions import reVReportsTypeError, reVReportsValueError
 
 font_manager.fontManager.ttflist.extend([SANS_SERIF, SANS_SERIF_BOLD])
 
 WIND = {"wind", "osw"}
 LOGGER = logs.get_logger(__name__, "INFO")
+MAX_NUM_SCENARIOS = 4
 
 configure_matplotlib()
 
@@ -92,13 +94,11 @@ def main(ctx, verbose):
     help=f"Resolution of output images in dots per inch. Default is {DPI}.",
 )
 def plots(config_file, out_path, dpi):
-    """
-    Create standard set of report plots for input supply curves.
-    """
-    # pylint: disable=too-many-statements, too-many-branches
+    """Create standard set of report plots for input supply curves"""
+
     LOGGER.info("Starting plot creation")
 
-    LOGGER.info(f"Loading configuration file {config_file}")
+    LOGGER.info("Loading configuration file %s", config_file)
     try:
         config = Config.from_json(config_file)
     except ValidationError:
@@ -107,9 +107,9 @@ def plots(config_file, out_path, dpi):
     LOGGER.info("Configuration file loaded.")
 
     n_scenarios = len(config.scenarios)
-    LOGGER.info(f"{n_scenarios} supply curve scenarios will be plotted:")
+    LOGGER.info("%d supply curve scenarios will be plotted:", n_scenarios)
     for scenario in config.scenarios:
-        LOGGER.info(f"\t{scenario.name}: {scenario.source.name}")
+        LOGGER.info("\t%s: %s", scenario.name, scenario.source.name)
 
     # make output directory (only if needed)
     out_path.mkdir(parents=False, exist_ok=True)
@@ -117,7 +117,9 @@ def plots(config_file, out_path, dpi):
     # load and augment data
     LOGGER.info("Loading and augmenting supply curve data")
     scenario_dfs = []
-    for i, scenario in tqdm.tqdm(enumerate(config.scenarios), total=n_scenarios):
+    for i, scenario in tqdm.tqdm(
+        enumerate(config.scenarios), total=n_scenarios
+    ):
         scenario_df = pd.read_csv(scenario.source)
 
         try:
@@ -128,22 +130,23 @@ def plots(config_file, out_path, dpi):
                 tech=config.tech,
                 lcoe_all_in_col=config.lcoe_all_in_col,
             )
-        except KeyError as e:
+        except KeyError:
             LOGGER.warning(
                 "Required columns are missing from the input supply curve. "
                 "Was your supply curve created by reV≥v0.14.5?"
             )
-            raise e
+            raise
 
-        # drop sites with zero capacity (this also removes inf values for total_lcoe)
+        # drop sites with zero capacity
+        # (this also removes inf values for total_lcoe)
         aug_df_w_capacity = aug_df[aug_df["capacity_mw"] > 0].copy()
 
         scenario_dfs.append(aug_df_w_capacity)
 
     # combine the data into a single data frame
     all_df = pd.concat(scenario_dfs)
-    all_df.sort_values(
-        by=["scenario_number", config.lcoe_all_in_col], ascending=True, inplace=True
+    all_df = all_df.sort_values(
+        by=["scenario_number", config.lcoe_all_in_col], ascending=True
     )
 
     LOGGER.info("Summary statistics:")
@@ -154,7 +157,9 @@ def plots(config_file, out_path, dpi):
         .sum()
         .reset_index()
     )
-    top_level_sums_df["capacity_gw"] = top_level_sums_df["capacity_mw"] / 1000.0
+    top_level_sums_df["capacity_gw"] = (
+        top_level_sums_df["capacity_mw"] / 1000.0
+    )
     top_level_sums_df["aep_twh"] = (
         top_level_sums_df["annual_energy_site_mwh"] / 1000.0 / 1000
     )
@@ -162,31 +167,40 @@ def plots(config_file, out_path, dpi):
     sum_area_by_scenario_md = top_level_sums_df[
         ["Scenario", "area_developable_sq_km"]
     ].to_markdown(tablefmt="rounded_grid", floatfmt=",.0f")
-    LOGGER.info(f"\nDevelopable Area:\n{sum_area_by_scenario_md}")
+    LOGGER.info("\nDevelopable Area:\n%s", sum_area_by_scenario_md)
 
-    sum_cap_by_scenario_md = top_level_sums_df[["Scenario", "capacity_gw"]].to_markdown(
-        tablefmt="rounded_grid", floatfmt=",.1f"
-    )
-    LOGGER.info(f"\nCapacity:\n{sum_cap_by_scenario_md}")
+    sum_cap_by_scenario_md = top_level_sums_df[
+        ["Scenario", "capacity_gw"]
+    ].to_markdown(tablefmt="rounded_grid", floatfmt=",.1f")
+    LOGGER.info("\nCapacity:\n%s", sum_cap_by_scenario_md)
 
-    sum_aep_by_scenario_md = top_level_sums_df[["Scenario", "aep_twh"]].to_markdown(
-        tablefmt="rounded_grid", floatfmt=",.1f"
-    )
-    LOGGER.info(f"\nGeneration:\n{sum_aep_by_scenario_md}")
+    sum_aep_by_scenario_md = top_level_sums_df[
+        ["Scenario", "aep_twh"]
+    ].to_markdown(tablefmt="rounded_grid", floatfmt=",.1f")
+    LOGGER.info("\nGeneration:\n%s", sum_aep_by_scenario_md)
 
     # summarize state level results by scenario
     LOGGER.info("Summarizing state level results")
-    all_df["cf_x_area"] = all_df["capacity_factor"] * all_df["area_developable_sq_km"]
+    all_df["cf_x_area"] = (
+        all_df["capacity_factor"] * all_df["area_developable_sq_km"]
+    )
     state_sum_df = all_df.groupby(["Scenario", "state"], as_index=False)[
-        ["area_developable_sq_km", "capacity_mw", "annual_energy_site_mwh", "cf_x_area"]
+        [
+            "area_developable_sq_km",
+            "capacity_mw",
+            "annual_energy_site_mwh",
+            "cf_x_area",
+        ]
     ].sum()
     state_sum_df["area_wt_mean_cf"] = (
         state_sum_df["cf_x_area"] / state_sum_df["area_developable_sq_km"]
     )
-    state_sum_df.drop(columns=["cf_x_area"], inplace=True)
-    state_sum_df.sort_values(by=["state", "Scenario"], ascending=True, inplace=True)
+    state_sum_df = state_sum_df.drop(columns=["cf_x_area"])
+    state_sum_df = state_sum_df.sort_values(
+        by=["state", "Scenario"], ascending=True
+    )
     out_csv = out_path.joinpath("state_results_summary.csv")
-    LOGGER.info(f"Saving state level results to {out_csv}")
+    LOGGER.info("Saving state level results to %s", out_csv)
     state_sum_df.to_csv(out_csv, header=True, index=False)
 
     # create scenario palette for plotting
@@ -194,9 +208,12 @@ def plots(config_file, out_path, dpi):
     for scenario in config.scenarios:
         scenario_palette[scenario.name] = scenario.color
 
-    # Barchart showing total capacity by scenario
-    LOGGER.info("Plotting total capacity by scenario barchart")
-    with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(RC_FONT_PARAMS):
+    # Bar chart showing total capacity by scenario
+    LOGGER.info("Plotting total capacity by scenario bar chart")
+    with (
+        sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+        plt.rc_context(RC_FONT_PARAMS),
+    ):
         fig, ax = plt.subplots(figsize=(8, 5))
         y = "capacity_gw"
         ymax = top_level_sums_df[y].max() * 1.05
@@ -219,9 +236,12 @@ def plots(config_file, out_path, dpi):
         g.figure.savefig(out_image_path, dpi=dpi, transparent=True)
         plt.close(fig)
 
-    # Barchart showing total developable area by scenario
-    LOGGER.info("Plotting total area by scenario barchart")
-    with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(RC_FONT_PARAMS):
+    # Bar chart showing total developable area by scenario
+    LOGGER.info("Plotting total area by scenario bar chart")
+    with (
+        sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+        plt.rc_context(RC_FONT_PARAMS),
+    ):
         fig, ax = plt.subplots(figsize=(8, 5))
         y = "area_developable_sq_km"
         ymax = top_level_sums_df[y].max() * 1.05
@@ -235,7 +255,9 @@ def plots(config_file, out_path, dpi):
             ax=ax,
             legend=False,
         )
-        g = format_graph(g, xlabel=None, ylabel="Developable Area (sq. km.)", ymax=ymax)
+        g = format_graph(
+            g, xlabel=None, ylabel="Developable Area (sq. km.)", ymax=ymax
+        )
         wrap_labels(g, 10)
         g.set_xticks(g.get_xticks())
         g.set_xticklabels(g.get_xticklabels(), weight="bold")
@@ -246,8 +268,8 @@ def plots(config_file, out_path, dpi):
 
     LOGGER.info("Plotting supply curves")
     # Prepare data for plotting supply curves
-    # Set up data frame we can use to plot all-in and site lcoe together on supply curve
-    # plots
+    # Set up data frame we can use to plot all-in
+    # and site lcoe together on supply curve plots
     supply_curve_total_lcoe_df = all_df[
         [
             config.lcoe_all_in_col,
@@ -259,39 +281,53 @@ def plots(config_file, out_path, dpi):
         ]
     ].copy()
     supply_curve_total_lcoe_df["LCOE Value"] = "All-In LCOE"
-    supply_curve_total_lcoe_df.rename(
-        columns={config.lcoe_all_in_col: "lcoe"}, inplace=True
+    supply_curve_total_lcoe_df = supply_curve_total_lcoe_df.rename(
+        columns={config.lcoe_all_in_col: "lcoe"}
     )
 
     supply_curve_site_lcoe_df = all_df[
-        [config.lcoe_site_col, "capacity_mw", "annual_energy_site_mwh", "Scenario"]
+        [
+            config.lcoe_site_col,
+            "capacity_mw",
+            "annual_energy_site_mwh",
+            "Scenario",
+        ]
     ].copy()
     supply_curve_site_lcoe_df.sort_values(
-        by=[config.lcoe_site_col], ascending=True, inplace=True
+        by=[config.lcoe_site_col], ascending=True
     )
     supply_curve_site_lcoe_df["cumul_capacit_gw"] = (
-        supply_curve_site_lcoe_df.groupby("Scenario")["capacity_mw"].cumsum() / 1000
+        supply_curve_site_lcoe_df.groupby("Scenario")["capacity_mw"].cumsum()
+        / 1000
     )
     supply_curve_site_lcoe_df["cumul_aep_twh"] = (
-        supply_curve_site_lcoe_df.groupby("Scenario")["annual_energy_site_mwh"].cumsum()
+        supply_curve_site_lcoe_df.groupby("Scenario")[
+            "annual_energy_site_mwh"
+        ].cumsum()
         / 1000
         / 1000
     )
     supply_curve_site_lcoe_df["LCOE Value"] = "Site LCOE"
-    supply_curve_site_lcoe_df.rename(
-        columns={config.lcoe_site_col: "lcoe"}, inplace=True
+    supply_curve_site_lcoe_df = supply_curve_site_lcoe_df.rename(
+        columns={config.lcoe_site_col: "lcoe"}
     )
 
-    supply_curve_df = pd.concat([supply_curve_total_lcoe_df, supply_curve_site_lcoe_df])
+    supply_curve_df = pd.concat(
+        [supply_curve_total_lcoe_df, supply_curve_site_lcoe_df]
+    )
 
-    # Supply curves - Two panel figure showing Cumulative Capacity by LCOE and
-    # Cumulative Generation by LCOE
+    # Supply curves - Two panel figure showing Cumulative Capacity by
+    # LCOE and Cumulative Generation by LCOE
     if config.lcoe_all_in_col != config.lcoe_site_col:
         sc_line_style = "LCOE Value"
     else:
         sc_line_style = None
-    with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(
-        RC_FONT_PARAMS | {"xtick.labelsize": SMALL_SIZE, "ytick.labelsize": SMALL_SIZE}
+    with (
+        sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+        plt.rc_context(
+            RC_FONT_PARAMS
+            | {"xtick.labelsize": SMALL_SIZE, "ytick.labelsize": SMALL_SIZE}
+        ),
     ):
         fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(13, 5))
         panel_1 = sns.lineplot(
@@ -340,7 +376,10 @@ def plots(config_file, out_path, dpi):
         plt.close(fig)
 
     # single panel supply curve - LCOE vs cumulative capacity
-    with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(RC_FONT_PARAMS):
+    with (
+        sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+        plt.rc_context(RC_FONT_PARAMS),
+    ):
         fig, ax = plt.subplots(figsize=(6.5, 5.5))
         ax = sns.lineplot(
             data=supply_curve_df,
@@ -373,17 +412,22 @@ def plots(config_file, out_path, dpi):
     # Regional capacity comparison
     # Sum the capacity by nrel region
     region_col = "offtake_state" if config.tech == "osw" else "nrel_region"
-    econ_cap_by_region_df = (  # noqa
+    econ_cap_by_region_df = (
         all_df[all_df[config.lcoe_all_in_col] <= config.plots.total_lcoe_max]
         .groupby(["Scenario", region_col])["capacity_mw"]
         .sum()
         .reset_index()
     )
-    econ_cap_by_region_df["capacity_gw"] = econ_cap_by_region_df["capacity_mw"] / 1000
-    econ_cap_by_region_df.sort_values("capacity_gw", ascending=False, inplace=True)
+    econ_cap_by_region_df["capacity_gw"] = (
+        econ_cap_by_region_df["capacity_mw"] / 1000
+    )
+    econ_cap_by_region_df = econ_cap_by_region_df.sort_values(
+        "capacity_gw", ascending=False
+    )
 
-    with sns.axes_style("whitegrid", NO_OUTLINE_RC_PARAMS), plt.rc_context(
-        RC_FONT_PARAMS
+    with (
+        sns.axes_style("whitegrid", NO_OUTLINE_RC_PARAMS),
+        plt.rc_context(RC_FONT_PARAMS),
     ):
         fig, ax = plt.subplots(figsize=(8, 5))
         g = sns.barplot(
@@ -403,8 +447,10 @@ def plots(config_file, out_path, dpi):
         fig.savefig(out_image_path, dpi=dpi, transparent=True)
         plt.close(fig)
 
-    LOGGER.info("Plotting Transmission Cost and Distance Boxplots")
-    for scenario_name, scenario_df in all_df.groupby(["Scenario"], as_index=False):
+    LOGGER.info("Plotting Transmission Cost and Distance Box plots")
+    for scenario_name, scenario_df in all_df.groupby(
+        ["Scenario"], as_index=False
+    ):
         # extract transmission cost data in tidy/long format
         if config.tech == "osw":
             trans_cost_vars = {
@@ -432,25 +478,27 @@ def plots(config_file, out_path, dpi):
         trans_cost_df = scenario_df[list(trans_cost_vars.keys())].melt(
             value_name="cost_per_mw"
         )
-        trans_cost_df["Transmission Component"] = trans_cost_df["variable"].replace(
-            trans_cost_vars
-        )
+        trans_cost_df["Transmission Component"] = trans_cost_df[
+            "variable"
+        ].replace(trans_cost_vars)
         trans_cost_df["Cost ($/MW)"] = trans_cost_df["cost_per_mw"] / 1e6
-        trans_cost_df.replace(to_replace=np.inf, value=np.nan, inplace=True)
-        trans_cost_df.dropna(axis=0, inplace=True)
+        trans_cost_df = trans_cost_df.replace(to_replace=np.inf, value=np.nan)
+        trans_cost_df = trans_cost_df.dropna(axis=0)
 
         # extract transmission distance data in tidy/long format
         trans_dist_df = scenario_df[list(trans_dist_vars.keys())].melt(
             value_name="Distance (km)"
         )
-        trans_dist_df["Transmission Component"] = trans_dist_df["variable"].replace(
-            trans_dist_vars
-        )
-        trans_dist_df.replace(to_replace=np.inf, value=np.nan, inplace=True)
-        trans_dist_df.dropna(axis=0, inplace=True)
+        trans_dist_df["Transmission Component"] = trans_dist_df[
+            "variable"
+        ].replace(trans_dist_vars)
+        trans_dist_df.replace(to_replace=np.inf, value=np.nan)
+        trans_dist_df = trans_dist_df.replace(to_replace=np.inf, value=np.nan)
+        trans_dist_df = trans_dist_df.dropna(axis=0)
 
-        with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(
-            RC_FONT_PARAMS
+        with (
+            sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+            plt.rc_context(RC_FONT_PARAMS),
         ):
             fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(2 * 6.5, 5))
             panel_1 = sns.boxplot(
@@ -482,7 +530,9 @@ def plots(config_file, out_path, dpi):
                 legend=False,
                 color="#9ebcda",
             )
-            panel_2 = format_graph(panel_2, xlabel=None, ylabel="Distance (km)")
+            panel_2 = format_graph(
+                panel_2, xlabel=None, ylabel="Distance (km)"
+            )
 
             scenario_outname = scenario_name[0].replace(" ", "_").lower()
             out_image_path = out_path.joinpath(
@@ -492,7 +542,7 @@ def plots(config_file, out_path, dpi):
             fig.savefig(out_image_path, dpi=dpi, transparent=True)
             plt.close(fig)
 
-    LOGGER.info("Plotting boxplots")
+    LOGGER.info("Plotting box plots")
     boxplot_vars = {
         "lcoe": {
             "All-in-LCOE ($/MWh)": config.lcoe_all_in_col,
@@ -503,14 +553,15 @@ def plots(config_file, out_path, dpi):
             "Reinforcement Distance (km)": "dist_reinforcement_km",
         },
         "trans_cost": {
-            "Point-of-Interconnect Costs ($/MW)": "cost_interconnection_usd_per_mw",
+            "Point-of-Interconnect Costs ($/MW)": (
+                "cost_interconnection_usd_per_mw"
+            ),
             "Reinforcement Costs ($/MW)": "cost_reinforcement_usd_per_mw_ac",
         },
         "Project Site Capacity (MW)": "capacity_mw",
     }
-    if config.tech in WIND:
-        if "losses_wakes_pct" in all_df.columns:
-            boxplot_vars["Wake Losses (%)"] = "losses_wakes_pct"
+    if config.tech in WIND and "losses_wakes_pct" in all_df.columns:
+        boxplot_vars["Wake Losses (%)"] = "losses_wakes_pct"
     if config.tech == "osw":
         # add plots for export cable costs and distance
         # weird syntax below is to ensure Export Cable plots are first
@@ -535,11 +586,11 @@ def plots(config_file, out_path, dpi):
                     column=yvars, return_type=None, showfliers=False
                 )
                 ymax = max(max(dummy_boxplot.get_ylim()) * 1.05, ymax)
-                # pylint: disable-next=nested-min-max
-                ymin = min(min(dummy_boxplot.get_ylim()), ymin)
+                ymin = min(min(dummy_boxplot.get_ylim()) * 1, ymin)
                 plt.close(dummy_boxplot.figure)
-            with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(
-                RC_FONT_PARAMS
+            with (
+                sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+                plt.rc_context(RC_FONT_PARAMS),
             ):
                 fig, ax = plt.subplots(
                     nrows=1, ncols=n_panels, figsize=(n_panels * 6.5, 5)
@@ -569,7 +620,9 @@ def plots(config_file, out_path, dpi):
                     )
                     wrap_labels(panel, 10)
                     panel.set_xticks(panel.get_xticks())
-                    panel.set_xticklabels(panel.get_xticklabels(), weight="bold")
+                    panel.set_xticklabels(
+                        panel.get_xticklabels(), weight="bold"
+                    )
 
         elif isinstance(var_map, str):
             var = var_map
@@ -584,11 +637,11 @@ def plots(config_file, out_path, dpi):
                     column=var, return_type=None, showfliers=False
                 )
                 ymax = max(max(dummy_boxplot.get_ylim()) * 1.05, ymax)
-                # pylint: disable-next=nested-min-max
-                ymin = min(min(dummy_boxplot.get_ylim()), ymin)
+                ymin = min(min(dummy_boxplot.get_ylim()) * 1, ymin)
                 plt.close(dummy_boxplot.figure)
-            with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(
-                RC_FONT_PARAMS
+            with (
+                sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+                plt.rc_context(RC_FONT_PARAMS),
             ):
                 fig, ax = plt.subplots(figsize=(6.5, 5))
                 g = sns.boxplot(
@@ -613,7 +666,8 @@ def plots(config_file, out_path, dpi):
                 )
                 wrap_labels(g, 10)
         else:
-            raise TypeError("Unexpected type: expected dict or str.")
+            msg = "Unexpected type: expected dict or str"
+            raise reVReportsTypeError(msg)
         out_image_path = out_path.joinpath(f"{out_filename}_boxplots.png")
         plt.tight_layout()
         fig.savefig(out_image_path, dpi=dpi, transparent=True)
@@ -654,7 +708,10 @@ def plots(config_file, out_path, dpi):
                         "ylabel": "Project Site Count",
                         "xlabel": "Number of Turbines",
                     },
-                    "hist_kwargs": {"binwidth": 5, "binrange": (0, n_turbines_max)},
+                    "hist_kwargs": {
+                        "binwidth": 5,
+                        "binrange": (0, n_turbines_max),
+                    },
                 }
             )
         if "losses_wakes_pct" in all_df.columns:
@@ -674,15 +731,16 @@ def plots(config_file, out_path, dpi):
             )
 
     for hist_var in hist_vars:
-        with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(
-            RC_FONT_PARAMS
+        with (
+            sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+            plt.rc_context(RC_FONT_PARAMS),
         ):
             fig, ax = plt.subplots(figsize=(8, 5))
 
-            xvar = hist_var["var"]
+            x_var = hist_var["var"]
             g = sns.histplot(
                 all_df,
-                x=xvar,
+                x=x_var,
                 element="step",
                 fill=False,
                 hue="Scenario",
@@ -696,13 +754,13 @@ def plots(config_file, out_path, dpi):
                 new_width = line.get_linewidth() + i * 0.75
                 line.set_linewidth(new_width)
                 legend_lines[i].set_linewidth(new_width)
-            out_image_path = out_path.joinpath(f"{xvar}_histogram.png")
+            out_image_path = out_path.joinpath(f"{x_var}_histogram.png")
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=dpi, transparent=True)
             plt.close(fig)
 
-    LOGGER.info("Plotting regional boxplots")
-    regbox_vars = [
+    LOGGER.info("Plotting regional box plots")
+    reg_box_vars = [
         {
             "var": config.lcoe_all_in_col,
             "fmt_kwargs": {"xlabel": "All-in LCOE ($/MWh)"},
@@ -727,15 +785,16 @@ def plots(config_file, out_path, dpi):
             .sort_values("capacity_ac_mw", ascending=False)
             .index
         )
-    for regbox_var in regbox_vars:
-        xvar = regbox_var["var"]
-        with sns.axes_style("whitegrid", DEFAULT_RC_PARAMS), plt.rc_context(
-            RC_FONT_PARAMS
+    for reg_box_var in reg_box_vars:
+        x_var = reg_box_var["var"]
+        with (
+            sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+            plt.rc_context(RC_FONT_PARAMS),
         ):
             fig, ax = plt.subplots(figsize=(8, 5))
             g = sns.boxplot(
                 all_df.reset_index(),
-                x=xvar,
+                x=x_var,
                 y=region_col,
                 hue="Scenario",
                 showfliers=False,
@@ -745,15 +804,20 @@ def plots(config_file, out_path, dpi):
                 dodge=True,
                 gap=0.3,
                 ax=ax,
-                **regbox_var["box_kwargs"],
+                **reg_box_var["box_kwargs"],
             )
             g = format_graph(
-                g, ylabel="Region", move_legend_outside=True, **regbox_var["fmt_kwargs"]
+                g,
+                ylabel="Region",
+                move_legend_outside=True,
+                **reg_box_var["fmt_kwargs"],
             )
             if config.tech == "osw":
                 g.set_yticks(g.get_yticks())
                 g.set_yticklabels(g.get_yticklabels(), fontsize=10)
-            out_image_path = out_path.joinpath(f"{xvar}_regional_boxplots.png")
+            out_image_path = out_path.joinpath(
+                f"{x_var}_regional_boxplots.png"
+            )
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=dpi, transparent=True)
             plt.close(fig)
@@ -788,13 +852,10 @@ def plots(config_file, out_path, dpi):
     help=f"Resolution of output images in dots per inch. Default is {DPI}.",
 )
 def maps(config_file, out_path, dpi):
-    """
-    Create standard set of report maps for input supply curves.
-    """
-    # pylint: disable=too-many-statements, too-many-branches
+    """Create standard set of report maps for input supply curves"""
     LOGGER.info("Starting plot creation")
 
-    LOGGER.info(f"Loading configuration file {config_file}")
+    LOGGER.info("Loading configuration file %s", config_file)
     try:
         config = Config.from_json(config_file)
     except ValidationError:
@@ -803,13 +864,13 @@ def maps(config_file, out_path, dpi):
     LOGGER.info("Configuration file loaded.")
 
     n_scenarios = len(config.scenarios)
-    if n_scenarios > 4:
-        err = "Cannot plot more than 4 scenarios."
-        LOGGER.error(err)
+    if n_scenarios > MAX_NUM_SCENARIOS:
+        LOGGER.error("Cannot plot more than %d scenarios.", MAX_NUM_SCENARIOS)
         sys.exit(1)
-    LOGGER.info(f"{n_scenarios} supply curve scenarios will be plotted:")
+
+    LOGGER.info("%s supply curve scenarios will be plotted:", n_scenarios)
     for scenario in config.scenarios:
-        LOGGER.info(f"\t{scenario.name}: {scenario.source.name}")
+        LOGGER.info("\t%s: %s", scenario.name, scenario.source.name)
 
     # make output directory (only if needed)
     out_path.mkdir(parents=False, exist_ok=True)
@@ -817,7 +878,7 @@ def maps(config_file, out_path, dpi):
     LOGGER.info("Loading boundaries dataset")
     boundaries_gdf = gpd.read_file(DEFAULT_BOUNDARIES)
     boundaries_gdf.to_crs("EPSG:4326", inplace=True)
-    boundaries_singlepart_gdf = boundaries_gdf.explode(index_parts=True)
+    boundaries_single_part_gdf = boundaries_gdf.explode(index_parts=True)
     boundaries_dissolved = boundaries_gdf.union_all()
     center_lon = boundaries_dissolved.centroid.x
     center_lat = boundaries_dissolved.centroid.y
@@ -852,10 +913,7 @@ def maps(config_file, out_path, dpi):
         },
     }
 
-    if config.cf_col is None:
-        cf_col = "capacity_factor_ac"
-    else:
-        cf_col = config.cf_col
+    cf_col = config.cf_col or "capacity_factor_ac"
 
     point_size = 2.0
     if config.tech == "pv":
@@ -946,7 +1004,14 @@ def maps(config_file, out_path, dpi):
                     "legend_title": "LCOT ($/MWh)",
                 },
                 "cost_export_usd_per_mw_ac": {
-                    "breaks": [500_000, 600_000, 700_000, 800_000, 900_000, 1_000_000],
+                    "breaks": [
+                        500_000,
+                        600_000,
+                        700_000,
+                        800_000,
+                        900_000,
+                        1_000_000,
+                    ],
                     "cmap": "YlGn",
                     "legend_title": "Export Cable ($/MW)",
                 },
@@ -984,9 +1049,11 @@ def maps(config_file, out_path, dpi):
             }
         )
     else:
-        raise ValueError(
-            f"Invalid input: tech={config.tech}. Valid options are: ['wind', 'pv']."
+        msg = (
+            f"Invalid input: tech={config.tech}. Valid options are: "
+            f"{VALID_TECHS}"
         )
+        raise reVReportsValueError(msg)
 
     # add/modify map variables based on input config parameters
     for map_var in config.map_vars:
@@ -1022,10 +1089,10 @@ def maps(config_file, out_path, dpi):
         scenario_dfs[scenario.name] = supply_curve_gdf
 
     n_scenarios = len(config.scenarios)
-    if n_scenarios > 4:
-        err = "Cannot map more than 4 scenarios."
-        LOGGER.error(err)
+    if n_scenarios > MAX_NUM_SCENARIOS:
+        LOGGER.error("Cannot map more than %d scenarios.", MAX_NUM_SCENARIOS)
         sys.exit(1)
+
     n_cols = 2
     n_rows = int(np.ceil(n_scenarios / n_cols))
     LOGGER.info("Creating maps")
@@ -1037,7 +1104,8 @@ def maps(config_file, out_path, dpi):
                 figsize=(13, 4 * n_rows),
                 subplot_kw={
                     "projection": gplt.crs.AlbersEqualArea(
-                        central_longitude=center_lon, central_latitude=center_lat
+                        central_longitude=center_lon,
+                        central_latitude=center_lat,
                     )
                 },
             )
@@ -1045,9 +1113,10 @@ def maps(config_file, out_path, dpi):
                 scenario_df = scenario_dfs[scenario_name]
                 if map_var not in scenario_df.columns:
                     err = (
-                        f"{map_var} column not found in one or more input supply "
-                        "curves. Consider using the `exclude_maps` configuration "
-                        "option to skip map generation for this column."
+                        f"{map_var} column not found in one or more input "
+                        "supply curves. Consider using the `exclude_maps` "
+                        "configuration option to skip map generation for "
+                        "this column."
                     )
                     LOGGER.error(err)
                 panel = ax.ravel()[i]
@@ -1059,9 +1128,13 @@ def maps(config_file, out_path, dpi):
                     map_title=None,
                     legend_title=map_settings.get("legend_title"),
                     background_df=background_gdf,
-                    boundaries_df=boundaries_singlepart_gdf,
+                    boundaries_df=boundaries_single_part_gdf,
                     extent=map_extent,
-                    layer_kwargs={"s": point_size, "linewidth": 0, "marker": "o"},
+                    layer_kwargs={
+                        "s": point_size,
+                        "linewidth": 0,
+                        "marker": "o",
+                    },
                     legend_kwargs={
                         "marker": "s",
                         "frameon": False,
@@ -1079,7 +1152,7 @@ def maps(config_file, out_path, dpi):
             mid_xcoord = 0.465
             min_ycoord = 0.0
             mid_ycoord = 0.475
-            if n_scenarios in (3, 4):
+            if n_scenarios in {3, 4}:
                 panel_width = 0.6
                 panel_height = 0.52
                 panel_dims = [panel_width, panel_height]
@@ -1090,10 +1163,10 @@ def maps(config_file, out_path, dpi):
                     [mid_xcoord, mid_ycoord],
                     [min_xcoord, mid_ycoord],
                 ]
-                for j in range(0, n_panels):
+                for j in range(n_panels):
                     coords = lower_lefts[j]
                     ax.ravel()[-j - 1].set_position(coords + panel_dims)
-            elif n_scenarios in (1, 2):
+            elif n_scenarios in {1, 2}:
                 ax.ravel()[0].set_position([-0.25, 0.0, 1, 1])
                 ax.ravel()[1].set_position([0.27, 0.0, 1, 1])
 
@@ -1108,7 +1181,7 @@ def maps(config_file, out_path, dpi):
                 legend_font_size = SMALL_SIZE
                 legend_loc = "center left"
                 legend_cols = 3
-                if n_rows == 2:
+                if n_rows == 2:  # noqa: PLR2004
                     legend_panel_position = [
                         mid_xcoord - 0.06,
                         min_ycoord - 0.03,
@@ -1128,11 +1201,11 @@ def maps(config_file, out_path, dpi):
             legend_handles = legend.legend_handles
             legend.remove()
 
-            lpanel = fig.add_subplot(alpha=0, frame_on=False)
-            lpanel.set_axis_off()
-            lpanel.set_position(legend_panel_position)
+            legend_panel = fig.add_subplot(alpha=0, frame_on=False)
+            legend_panel.set_axis_off()
+            legend_panel.set_position(legend_panel_position)
 
-            lpanel.legend(
+            legend_panel.legend(
                 legend_handles,
                 legend_texts,
                 frameon=False,
@@ -1142,7 +1215,10 @@ def maps(config_file, out_path, dpi):
                 handletextpad=-0.1,
                 columnspacing=0,
                 fontsize=legend_font_size,
-                title_fontproperties={"size": legend_font_size, "weight": "bold"},
+                title_fontproperties={
+                    "size": legend_font_size,
+                    "weight": "bold",
+                },
             )
 
             out_image_name = f"{map_var}.png"
@@ -1181,21 +1257,23 @@ def maps(config_file, out_path, dpi):
     required=False,
     default=90.0,
     type=float,
-    help=("Cell size in meters of characterization layers. " "Default is 90."),
+    help=("Cell size in meters of characterization layers. Default is 90."),
 )
-def unpack_characterizations(supply_curve_csv, char_map, out_csv, cell_size=90.0):
-    """
-    Unpacks characterization data from the input supply curve dataframe,
-    converting values from embedded JSON strings to new standalone columns,
-    and saves out a new version of the supply curve with these columns
-    included.
+def unpack_characterizations(
+    supply_curve_csv, char_map, out_csv, cell_size=90.0
+):
+    """Unpack characterization data from the input supply curve.
+
+    The unpacking converts values from embedded JSON strings to new
+    standalone columns, and saves out a new version of the supply curve
+    with these columns included.
     """
 
     LOGGER.info("Loading supply curve data")
     supply_curve_df = pd.read_csv(supply_curve_csv)
 
     LOGGER.info("Loading characterization mapping")
-    with open(char_map, "r") as f:
+    with Path(char_map).open("r", encoding="utf-8") as f:
         characterization_map = json.load(f)
 
     LOGGER.info("Unpacking characterizations")

@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-"""Characterizations unit tests."""
+"""Characterizations unit tests"""
+
 import json
 
 import numpy as np
@@ -14,31 +14,37 @@ from reVReports.characterizations import (
 )
 
 
-def test_unpack_characterizations_happy(data_dir):
+def test_unpack_characterizations_happy(test_data_dir):
     """
     Happy path unit test for unpack_characterizations() function. Check that it
     produces expected output for provided input and characterization map.
     """
 
-    char_csv = data_dir.joinpath(
-        "supply_curves", "characterizations", "supply-curve.csv"
+    char_csv = (
+        test_data_dir
+        / "supply_curves"
+        / "characterizations"
+        / "supply-curve.csv"
     )
     in_df = pd.read_csv(char_csv)
-    char_map_json = data_dir.joinpath("characterization-map.json")
-    with open(char_map_json, "r") as f:
+    char_map_json = test_data_dir / "characterization-map.json"
+    with char_map_json.open("r") as f:
         char_map = json.load(f)
 
     output_df = unpack_characterizations(in_df, char_map, cell_size_m=90)
 
-    expected_results_src = data_dir.joinpath(
-        "outputs", "characterizations", "unpacked-supply-curve.csv"
+    expected_results_src = (
+        test_data_dir
+        / "outputs"
+        / "characterizations"
+        / "unpacked-supply-curve.csv"
     )
     expected_df = pd.read_csv(expected_results_src)
 
     assert_frame_equal(output_df, expected_df)
 
 
-def test_unpack_characterizations_bad_method(data_dir):
+def test_unpack_characterizations_bad_method(test_data_dir):
     """
     Test that unpack_characterizations() function correctly raises a ValueError
     when passed an invalid method. This is a proxy for testing that this
@@ -46,13 +52,16 @@ def test_unpack_characterizations_bad_method(data_dir):
     characterization map, which are tested more thoroughly in other unit tests.
     """
 
-    char_csv = data_dir.joinpath(
-        "supply_curves", "characterizations", "supply-curve.csv"
+    char_csv = (
+        test_data_dir
+        / "supply_curves"
+        / "characterizations"
+        / "supply-curve.csv"
     )
     in_df = pd.read_csv(char_csv)
 
-    char_map_json = data_dir.joinpath("characterization-map.json")
-    with open(char_map_json, "r") as f:
+    char_map_json = test_data_dir / "characterization-map.json"
+    with char_map_json.open("r") as f:
         char_map = json.load(f)
     char_map["nlcd_2019_90x90"]["method"] = "not-a-valid-method"
 
@@ -61,55 +70,59 @@ def test_unpack_characterizations_bad_method(data_dir):
 
 
 @pytest.mark.filterwarnings("ignore:Skipping")
-def test_validate_characterization_remapper_happy(data_dir):
+def test_validate_characterization_remapper_happy(test_data_dir):
     """
     Happy path test for validate_characterization_remapper(). Make sure it
     succeeds without raising errors for known test data and char map.
     """
 
-    char_csv = data_dir.joinpath(
-        "supply_curves", "characterizations", "supply-curve.csv"
+    char_csv = (
+        test_data_dir
+        / "supply_curves"
+        / "characterizations"
+        / "supply-curve.csv"
     )
     in_df = pd.read_csv(char_csv)
-    char_map_json = data_dir.joinpath("characterization-map.json")
-    with open(char_map_json, "r") as f:
+    char_map_json = test_data_dir / "characterization-map.json"
+    with char_map_json.open("r") as f:
         char_map = json.load(f)
 
     validate_characterization_remapper(char_map, in_df)
 
 
 @pytest.mark.filterwarnings("ignore:Skipping")
-def test_validate_characterization_remapper_key_error(data_dir):
-    """
-    Test that validate_characterization_remapper() will raise a KeyError
-    when passed a map column that does not exist in the input dataframe.
-    """
+def test_validate_characterization_remapper_key_error(test_data_dir):
+    """Test that validate_characterization_remapper() raises KeyError"""
 
-    char_csv = data_dir.joinpath(
-        "supply_curves", "characterizations", "supply-curve.csv"
+    char_csv = (
+        test_data_dir
+        / "supply_curves"
+        / "characterizations"
+        / "supply-curve.csv"
     )
     in_df = pd.read_csv(char_csv)
-    char_map_json = data_dir.joinpath("characterization-map.json")
-    with open(char_map_json, "r") as f:
+    char_map_json = test_data_dir / "characterization-map.json"
+    with char_map_json.open("r") as f:
         char_map = json.load(f)
-    in_df.drop(columns=["fed_land_owner"], inplace=True)
+
+    in_df = in_df.drop(columns=["fed_land_owner"])
 
     with pytest.raises(KeyError):
         validate_characterization_remapper(char_map, in_df)
 
 
 @pytest.mark.filterwarnings("ignore:Skipping")
-def test_validate_characterization_remapper_value_error(data_dir):
-    """
-    Test that validate_characterization_remapper() will raise a ValueError
-    when passed various invalid combinations of mappings.
-    """
-    char_csv = data_dir.joinpath(
-        "supply_curves", "characterizations", "supply-curve.csv"
+def test_validate_characterization_remapper_value_error(test_data_dir):
+    """Test that validate_characterization_remapper() raises errors"""
+    char_csv = (
+        test_data_dir
+        / "supply_curves"
+        / "characterizations"
+        / "supply-curve.csv"
     )
     in_df = pd.read_csv(char_csv)
-    char_map_json = data_dir.joinpath("characterization-map.json")
-    with open(char_map_json, "r") as f:
+    char_map_json = test_data_dir / "characterization-map.json"
+    with char_map_json.open("r") as f:
         char_map = json.load(f)
 
     # not a valid method
@@ -164,14 +177,14 @@ def test_validate_characterization_remapper_value_error(data_dir):
     validate_characterization_remapper(char_map_bad, in_df)
 
 
-def test_recast_categories_pass_through(data_dir):
+def test_recast_categories_pass_through(test_data_dir):
     """
     Test that recast_categories() unpacks data correctly (as pass through, no
     area recast).
     """
 
-    char_map_json = data_dir.joinpath("characterization-map.json")
-    with open(char_map_json, "r") as f:
+    char_map_json = test_data_dir / "characterization-map.json"
+    with char_map_json.open("r") as f:
         char_map = json.load(f)
 
     col = "fed_land_owner"
@@ -188,13 +201,13 @@ def test_recast_categories_pass_through(data_dir):
         assert np.all(mock_df[lkup[k]] == v)
 
 
-def test_recast_categories_recast_to_area(data_dir):
+def test_recast_categories_recast_to_area(test_data_dir):
     """
     Test that recast_categories() unpacks data correct when recasting to area
     values.
     """
-    char_map_json = data_dir.joinpath("characterization-map.json")
-    with open(char_map_json, "r") as f:
+    char_map_json = test_data_dir / "characterization-map.json"
+    with char_map_json.open("r") as f:
         char_map = json.load(f)
 
     col = "fed_land_owner"

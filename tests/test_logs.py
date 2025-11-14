@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """Tests for logs module"""
+
 import logging
 import pytest
 
@@ -8,9 +8,9 @@ from reVReports.logs import get_logger
 
 def test_get_logger_happy(caplog):
     """
-    Basic unit test for the get_logger() function to assert that it emits messages
-    at the correct levels. Formatting is not checked due to apparent limitations of
-    caplog fixture.
+    Basic unit test for the get_logger() function to assert that it
+    emits messages at the correct levels. Formatting is not checked due
+    to apparent limitations of caplog fixture.
     """
     logger_name = "test_logger"
     logger = get_logger(logger_name, logging.INFO)

@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
 """Tests for CLI"""
+
 import tempfile
 from pathlib import Path
 
@@ -8,23 +8,25 @@ import pandas as pd
 from pandas.testing import assert_frame_equal
 
 from reVReports.cli import main
-from reVReports.plots import compare_images_approx
+from reVReports.utilities.plots import compare_images_approx
 from reVReports.data import check_files_match
 
 
 def test_main(cli_runner):
     """Test main() CLI command."""
     result = cli_runner.invoke(main, "--help")
-    assert result.exit_code == 0, f"Command failed with error {result.exception}"
+    assert result.exit_code == 0, (
+        f"Command failed with error {result.exception}"
+    )
 
 
 @pytest.mark.parametrize("command", ["plots", "maps"])
-def test_bad_config(cli_runner, command, data_dir, caplog):
+def test_bad_config(cli_runner, command, test_data_dir, caplog):
     """
-    Test that the plots and maps command both exit with an error when passed an invalid
-    configuration file.
+    Test that the plots and maps command both exit with an error when
+    passed an invalid configuration file.
     """
-    config_path = data_dir.joinpath("config_misplaced_params.json")
+    config_path = test_data_dir / "config_misplaced_params.json"
     with tempfile.TemporaryDirectory() as temp_dir:
         out_path = Path(temp_dir)
         result = cli_runner.invoke(
@@ -49,11 +51,10 @@ def test_bad_config(cli_runner, command, data_dir, caplog):
     "tech",
     ["osw", "pv", "wind_bespoke", "wind_vanilla", "pv_site_lcoe_only", "geo"],
 )
-def test_plots_integration(cli_runner, data_dir, tech, set_to_data_dir):
-    # pylint: disable=unused-argument
+def test_plots_integration(cli_runner, test_data_dir, tech, set_to_data_dir):
     """Integration test for the plots command."""
 
-    config_path = data_dir.joinpath(f"config_{tech}.json")
+    config_path = test_data_dir / f"config_{tech}.json"
     with tempfile.TemporaryDirectory() as temp_dir:
         out_path = Path(temp_dir)
         result = cli_runner.invoke(
@@ -68,24 +69,31 @@ def test_plots_integration(cli_runner, data_dir, tech, set_to_data_dir):
                 100,
             ],
         )
-        assert result.exit_code == 0, f"Command failed with error {result.exception}"
+        assert result.exit_code == 0, (
+            f"Command failed with error {result.exception}"
+        )
 
-        test_path = data_dir.joinpath("outputs", "plots", tech)
+        test_path = test_data_dir / "outputs" / "plots" / tech
 
         patterns = ["*.png", "*.csv"]
         for pattern in patterns:
-            outputs_match, difference = check_files_match(pattern, out_path, test_path)
+            outputs_match, difference = check_files_match(
+                pattern, out_path, test_path
+            )
             if not outputs_match:
-                raise AssertionError(
+                msg = (
                     "Output files do not match expected files. "
                     f"Difference is: {difference}"
                 )
+                raise AssertionError(msg)
 
         # check outputs were created correctly
-        output_image_names = [f.relative_to(out_path) for f in out_path.rglob("*.png")]
+        output_image_names = [
+            f.relative_to(out_path) for f in out_path.rglob("*.png")
+        ]
         for output_image_name in output_image_names:
-            output_image = out_path.joinpath(output_image_name)
-            test_image = test_path.joinpath(output_image_name)
+            output_image = out_path / output_image_name
+            test_image = test_path / output_image_name
             images_match, pct_diff = compare_images_approx(
                 output_image, test_image, hash_size=64, max_diff_pct=0.15
             )
@@ -95,10 +103,12 @@ def test_plots_integration(cli_runner, data_dir, tech, set_to_data_dir):
             )
 
         # check outputs were created correctly
-        output_csv_names = [f.relative_to(out_path) for f in out_path.rglob("*.csv")]
+        output_csv_names = [
+            f.relative_to(out_path) for f in out_path.rglob("*.csv")
+        ]
         for output_csv_name in output_csv_names:
-            output_csv = out_path.joinpath(output_csv_name)
-            test_csv = test_path.joinpath(output_csv_name)
+            output_csv = out_path / output_csv_name
+            test_csv = test_path / output_csv_name
             output_df = pd.read_csv(output_csv)
             test_df = pd.read_csv(test_csv)
             assert_frame_equal(output_df, test_df)
@@ -118,11 +128,12 @@ def test_plots_integration(cli_runner, data_dir, tech, set_to_data_dir):
         "config_geo.json",
     ],
 )
-def test_maps_integration(cli_runner, data_dir, config_name, set_to_data_dir):
-    # pylint: disable=unused-argument
+def test_maps_integration(
+    cli_runner, test_data_dir, config_name, set_to_data_dir
+):
     """Integration test for the maps command."""
 
-    config_path = data_dir.joinpath(config_name)
+    config_path = test_data_dir / config_name
     with tempfile.TemporaryDirectory() as temp_dir:
         out_path = Path(temp_dir)
         result = cli_runner.invoke(
@@ -137,24 +148,31 @@ def test_maps_integration(cli_runner, data_dir, config_name, set_to_data_dir):
                 100,
             ],
         )
-        assert result.exit_code == 0, f"Command failed with error {result.exception}"
+        assert result.exit_code == 0, (
+            f"Command failed with error {result.exception}"
+        )
 
         test_folder = config_name.replace("config_", "").replace(".json", "")
-        test_path = data_dir.joinpath("outputs", "maps", test_folder)
+        test_path = test_data_dir / "outputs" / "maps" / test_folder
 
         pattern = "*.png"
-        outputs_match, difference = check_files_match(pattern, out_path, test_path)
+        outputs_match, difference = check_files_match(
+            pattern, out_path, test_path
+        )
         if not outputs_match:
-            raise AssertionError(
+            msg = (
                 "Output files do not match expected files. "
                 f"Difference is: {difference}"
             )
+            raise AssertionError(msg)
 
         # check outputs were created correctly
-        output_image_names = [f.relative_to(out_path) for f in out_path.rglob(pattern)]
+        output_image_names = [
+            f.relative_to(out_path) for f in out_path.rglob(pattern)
+        ]
         for output_image_name in output_image_names:
-            output_image = out_path.joinpath(output_image_name)
-            test_image = test_path.joinpath(output_image_name)
+            output_image = out_path / output_image_name
+            test_image = test_path / output_image_name
             images_match, pct_diff = compare_images_approx(
                 output_image, test_image, hash_size=64, max_diff_pct=0.15
             )
@@ -164,19 +182,19 @@ def test_maps_integration(cli_runner, data_dir, config_name, set_to_data_dir):
             )
 
 
-def test_unpack_characterizations(
-    cli_runner,
-    data_dir,
-):
+def test_unpack_characterizations(cli_runner, test_data_dir):
     """Integration test for unpack_characterizations() CLI command."""
 
-    char_csv = data_dir.joinpath(
-        "supply_curves", "characterizations", "supply-curve.csv"
+    char_csv = (
+        test_data_dir
+        / "supply_curves"
+        / "characterizations"
+        / "supply-curve.csv"
     )
-    char_map_path = data_dir.joinpath("characterization-map.json")
+    char_map_path = test_data_dir / "characterization-map.json"
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        output_csv = Path(temp_dir).joinpath("characterizations.csv")
+        output_csv = Path(temp_dir) / "characterizations.csv"
         result = cli_runner.invoke(
             main,
             [
@@ -190,12 +208,17 @@ def test_unpack_characterizations(
             ],
             catch_exceptions=False,
         )
-        assert result.exit_code == 0, f"Command failed with error {result.exception}"
+        assert result.exit_code == 0, (
+            f"Command failed with error {result.exception}"
+        )
 
         output_df = pd.read_csv(output_csv)
 
-        expected_results_src = data_dir.joinpath(
-            "outputs", "characterizations", "unpacked-supply-curve.csv"
+        expected_results_src = (
+            test_data_dir
+            / "outputs"
+            / "characterizations"
+            / "unpacked-supply-curve.csv"
         )
         expected_df = pd.read_csv(expected_results_src)
 

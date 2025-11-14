@@ -197,7 +197,7 @@ def plots(config_file, out_path, dpi):
             "Scenario",
         ]
     ].copy()
-    supply_curve_site_lcoe_df.sort_values(
+    supply_curve_site_lcoe_df = supply_curve_site_lcoe_df.sort_values(
         by=[config.lcoe_site_col], ascending=True
     )
     supply_curve_site_lcoe_df["cumul_capacit_gw"] = (

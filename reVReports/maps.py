@@ -23,16 +23,21 @@ logger = logging.getLogger(__name__)
 
 
 class _BoundariesData:
+    """Cached geographic boundary resources"""
+
     @cached_property
     def _boundaries_gdf_raw(self):
+        """geopandas.GeoDataFrame: Raw boundary geometries"""
         return gpd.read_file(DEFAULT_BOUNDARIES).to_crs("EPSG:4326")
 
     @cached_property
     def _boundaries_dissolved(self):
+        """shapely.Geometry: Dissolved boundary geometry"""
         return self._boundaries_gdf_raw.union_all()
 
     @cached_property
     def background_gdf(self):
+        """geopandas.GeoDataFrame: Boundaries for plotting background"""
         return gpd.GeoDataFrame(
             {"geometry": [self._boundaries_dissolved]},
             crs=self._boundaries_gdf_raw.crs,
@@ -40,20 +45,24 @@ class _BoundariesData:
 
     @cached_property
     def boundaries_single_part_gdf(self):
+        """geopandas.GeoDataFrame: Single-part boundary geometries"""
         return self._boundaries_gdf_raw.explode(index_parts=True)
 
     @cached_property
     def map_extent(self):
+        """numpy.ndarray: Buffered extent for plotting"""
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=UserWarning)
             return self.background_gdf.buffer(0.01).total_bounds
 
     @cached_property
     def center_lon(self):
+        """float: Central longitude for map projections"""
         return self._boundaries_dissolved.centroid.x
 
     @cached_property
     def center_lat(self):
+        """float: Central latitude for map projections"""
         return self._boundaries_dissolved.centroid.y
 
 
@@ -61,19 +70,33 @@ _BOUNDARIES = _BoundariesData()
 
 
 class MapData:
+    """Prepare map inputs from scenario supply curve data"""
+
     def __init__(self, config, cap_col):
+        """
+
+        Parameters
+        ----------
+        config : object
+            Map configuration with scenario metadata.
+        cap_col : str
+            Column used for project capacity calculations.
+        """
         self._config = config
         self.cap_col = cap_col
 
     def __iter__(self):
+        """Iterate over scenario names and GeoDataFrames"""
         return iter(self.scenario_dfs.items())
 
     @property
     def config(self):
+        """object: Map configuration instance"""
         return self._config
 
     @cached_property
     def scenario_dfs(self):
+        """dict: Scenario GeoDataFrames keyed by name"""
         logger.info("Loading and augmenting supply curve data")
         scenario_dfs = {}
         for scenario in tqdm.tqdm(
@@ -105,14 +128,37 @@ class MapData:
 
 
 class MapGenerator:
+    """Generate geospatial visualizations from prepared datasets"""
+
     def __init__(self, map_data):
+        """
+
+        Parameters
+        ----------
+        map_data : MapData
+            Prepared map data container.
+        """
         self._map_data = map_data
 
     @property
     def num_scenarios(self):
+        """int: Number of configured scenarios"""
         return len(self._map_data.scenario_dfs)
 
     def build_maps(self, map_vars, out_directory, dpi, point_size=2.0):
+        """Create scenario maps for each requested variable
+
+        Parameters
+        ----------
+        map_vars : dict
+            Mapping of column names to styling metadata.
+        out_directory : pathlib.Path
+            Directory for saved figures.
+        dpi : int
+            Output resolution for saved figures.
+        point_size : float, optional
+            Marker size for scenario points, by default 2.0.
+        """
         n_cols = 2
         n_rows = int(np.ceil(self.num_scenarios / n_cols))
         logger.info("Creating maps")
@@ -250,6 +296,18 @@ class MapGenerator:
 
 
 def configure_map_params(config):
+    """Configure map parameters based on technology settings
+
+    Parameters
+    ----------
+    config : object
+        Map configuration containing technology attributes.
+
+    Returns
+    -------
+    tuple
+        Capacity column, point size, and mapping configuration.
+    """
     logger.info("Configuring map settings")
     map_vars = {
         config.lcoe_all_in_col: {

@@ -354,6 +354,7 @@ def compare_images_approx(
 
 
 def _autoscale_axes(graph, xmax, ymax, autoscale_to_other_axis):
+    """Conditionally autoscale axes based on provided limits."""
     if ymax is None and xmax is not None and autoscale_to_other_axis is True:
         autoscale_y(graph)
     if xmax is None and ymax is not None and autoscale_to_other_axis is True:
@@ -361,6 +362,7 @@ def _autoscale_axes(graph, xmax, ymax, autoscale_to_other_axis):
 
 
 def _format_axes(graph, x_formatter, y_formatter):
+    """Format axis tick labels with numeric-aware formatters."""
     if x_formatter:
         ticks = graph.xaxis.get_ticklabels()
         if len(ticks) > 0 and is_numeric(ticks[0].get_text()):
@@ -374,6 +376,7 @@ def _format_axes(graph, x_formatter, y_formatter):
 def _format_legend(
     graph, legend_frame_on, move_legend_outside, drop_legend, legend_title
 ):
+    """Adjust legend appearance and positioning for a graph."""
     if graph.legend_ is None:
         return
 

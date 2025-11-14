@@ -220,6 +220,7 @@ class MapGenerator:
                 plt.close(fig)
 
     def _adjust_panel(self, fig, ax, map_settings, n_rows):
+        """Adjust subplot layout and legend anchoring"""
         n_panels = len(ax.ravel())
         min_xcoord = -0.04
         mid_xcoord = 0.465
@@ -256,7 +257,7 @@ class MapGenerator:
     def _correct_legend(
         self, fig, map_settings, ax, n_panels, n_rows, mid_xcoord, min_ycoord
     ):
-        """Correct legend placement on a map figure"""
+        """Position the consolidated legend panel"""
 
         if self.num_scenarios < n_panels:
             extra_panel = ax.ravel()[-1]

@@ -272,6 +272,7 @@ def map_geodataframe_column(  # noqa: PLR0913, PLR0917
 
 
 def _build_scheme(breaks, data_df, column):
+    """Construct the map classification scheme for data breaks."""
     if breaks is None:
         return mc.Quantiles(data_df[column], k=5)
 
@@ -291,6 +292,7 @@ def _build_scheme(breaks, data_df, column):
 
 
 def _build_background(ax, extent, background_df, projection):
+    """Render the background layer with drop shadow styling."""
     drop_shadow_effects = [
         SimpleLineShadow(
             shadow_color="black", linewidth=0.5, alpha=0.65, offset=(1, -1)
@@ -317,6 +319,7 @@ def _build_background(ax, extent, background_df, projection):
 
 
 def _build_legend_kwargs(legend, legend_kwargs, legend_title):
+    """Assemble legend keyword arguments when legends are enabled."""
     if not legend:
         return None
 
@@ -331,6 +334,7 @@ def _build_legend_kwargs(legend, legend_kwargs, legend_title):
 
 
 def _fix_last_legend_entry(ax, legend_title):
+    """Adjust the final legend label to show an open-ended class."""
     last_legend_label = ax.legend_.texts[-1]
     new_label = f"> {last_legend_label.get_text().split(' - ')[0]}"
     last_legend_label.set_text(new_label)

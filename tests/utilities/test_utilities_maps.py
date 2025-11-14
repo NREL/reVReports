@@ -1,5 +1,5 @@
-# -*- coding: utf-8 -*-
-"""Maps unit tests."""
+"""Maps unit tests"""
+
 import tempfile
 from pathlib import Path
 
@@ -10,12 +10,11 @@ import matplotlib.pyplot as plt
 import geoplot as gplt
 from shapely.geometry import box
 
-from reVReports.plots import compare_images_approx
-from reVReports.maps import YBFixedBounds, map_geodataframe_column
+from reVReports.utilities.plots import compare_images_approx
+from reVReports.utilities.maps import YBFixedBounds, map_geodataframe_column
 
 
-def test_YBFixedBounds_happy():
-    # pylint: disable=invalid-name
+def test_YBFixedBounds_happy():  # noqa: N802
     """
     Happy path test for YBFixedBounds. Check that it correctly resets
     max() and min() methods to return preset values rather than actual min
@@ -34,8 +33,7 @@ def test_YBFixedBounds_happy():
     assert yb.min() == preset_min
 
 
-def test_YBFixedBounds_mapclassify():
-    # pylint: disable=invalid-name
+def test_YBFixedBounds_mapclassify():  # noqa: N802
     """
     Test YBFixedBounds works as expected when used to overwrite the yb
     property of a mapclassify classifier.
@@ -48,14 +46,16 @@ def test_YBFixedBounds_mapclassify():
     present_min = 0
 
     assert scheme.yb.max() < scheme.k
-    scheme.yb = YBFixedBounds(scheme.yb, preset_max=preset_max, preset_min=present_min)
+    scheme.yb = YBFixedBounds(
+        scheme.yb, preset_max=preset_max, preset_min=present_min
+    )
     assert scheme.yb.max() == preset_max
     assert scheme.yb.min() == present_min
 
 
 @pytest.mark.filterwarnings("ignore:Geometry is in a geographic:UserWarning")
 def test_map_geodataframe_column_happy(
-    data_dir, supply_curve_gdf, background_gdf, states_gdf
+    test_data_dir, supply_curve_gdf, background_gdf, states_gdf
 ):
     """
     Happy path test for map_geodataframe_column. Test that when run
@@ -74,11 +74,11 @@ def test_map_geodataframe_column_happy(
         plt.tight_layout()
 
         out_png_name = "happy_map.png"
-        out_png = Path(tempdir).joinpath("happy_map.png")
+        out_png = Path(tempdir) / "happy_map.png"
         g.figure.savefig(out_png, dpi=75)
         plt.close(g.figure)
 
-        expected_png = data_dir.joinpath("maps", "outputs", out_png_name)
+        expected_png = test_data_dir / "maps" / "outputs" / out_png_name
 
         images_match, pct_diff = compare_images_approx(
             expected_png, out_png, hash_size=64, max_diff_pct=0.1
@@ -91,7 +91,7 @@ def test_map_geodataframe_column_happy(
 
 @pytest.mark.filterwarnings("ignore:Geometry is in a geographic:UserWarning")
 def test_map_geodataframe_column_styling(
-    data_dir, supply_curve_gdf, background_gdf, states_gdf
+    test_data_dir, supply_curve_gdf, background_gdf, states_gdf
 ):
     """
     Test that map_geodataframe_column() produces expected output image when
@@ -126,11 +126,11 @@ def test_map_geodataframe_column_styling(
         plt.tight_layout()
 
         out_png_name = "styling_map.png"
-        out_png = Path(tempdir).joinpath(out_png_name)
+        out_png = Path(tempdir) / out_png_name
         g.figure.savefig(out_png, dpi=75)
         plt.close(g.figure)
 
-        expected_png = data_dir.joinpath("maps", "outputs", out_png_name)
+        expected_png = test_data_dir / "maps" / "outputs" / out_png_name
 
         images_match, pct_diff = compare_images_approx(
             expected_png, out_png, hash_size=64, max_diff_pct=0.1
@@ -143,7 +143,7 @@ def test_map_geodataframe_column_styling(
 
 @pytest.mark.filterwarnings("ignore:Geometry is in a geographic:UserWarning")
 def test_map_geodataframe_column_repeat(
-    data_dir, supply_curve_gdf, background_gdf, states_gdf
+    test_data_dir, supply_curve_gdf, background_gdf, states_gdf
 ):
     """
     Test that running map_geodataframe_column twice exactly the same produces
@@ -172,11 +172,11 @@ def test_map_geodataframe_column_repeat(
         plt.tight_layout()
 
         out_png_name = "happy_map.png"
-        out_png = Path(tempdir).joinpath(out_png_name)
+        out_png = Path(tempdir) / out_png_name
         g.figure.savefig(out_png, dpi=75)
         plt.close(g.figure)
 
-        expected_png = data_dir.joinpath("maps", "outputs", out_png_name)
+        expected_png = test_data_dir / "maps" / "outputs" / out_png_name
 
         images_match, pct_diff = compare_images_approx(
             expected_png, out_png, hash_size=64, max_diff_pct=0.1
@@ -189,7 +189,7 @@ def test_map_geodataframe_column_repeat(
 
 @pytest.mark.filterwarnings("ignore:Geometry is in a geographic:UserWarning")
 def test_map_geodataframe_column_no_legend(
-    data_dir, supply_curve_gdf, background_gdf, states_gdf
+    test_data_dir, supply_curve_gdf, background_gdf, states_gdf
 ):
     """
     Test that map_geodataframe_column function produces a map without a legend
@@ -208,11 +208,11 @@ def test_map_geodataframe_column_no_legend(
         plt.tight_layout()
 
         out_png_name = "no_legend.png"
-        out_png = Path(tempdir).joinpath("no_legend.png")
+        out_png = Path(tempdir) / "no_legend.png"
         g.figure.savefig(out_png, dpi=75)
         plt.close(g.figure)
 
-        expected_png = data_dir.joinpath("maps", "outputs", out_png_name)
+        expected_png = test_data_dir / "maps" / "outputs" / out_png_name
 
         images_match, pct_diff = compare_images_approx(
             expected_png, out_png, hash_size=64, max_diff_pct=0.1
@@ -225,7 +225,7 @@ def test_map_geodataframe_column_no_legend(
 
 @pytest.mark.filterwarnings("ignore:Geometry is in a geographic:UserWarning")
 def test_map_geodataframe_column_boundaries_kwargs(
-    data_dir, supply_curve_gdf, background_gdf, states_gdf
+    test_data_dir, supply_curve_gdf, background_gdf, states_gdf
 ):
     """
     Test that map_geodataframe_column function produces a map with correctly
@@ -239,16 +239,20 @@ def test_map_geodataframe_column_boundaries_kwargs(
             col_name,
             background_df=background_gdf,
             boundaries_df=states_gdf,
-            boundaries_kwargs={"linewidth": 2, "zorder": 1, "edgecolor": "black"},
+            boundaries_kwargs={
+                "linewidth": 2,
+                "zorder": 1,
+                "edgecolor": "black",
+            },
         )
         plt.tight_layout()
 
         out_png_name = "boundaries_kwargs.png"
-        out_png = Path(tempdir).joinpath("boundaries_kwargs.png")
+        out_png = Path(tempdir) / "boundaries_kwargs.png"
         g.figure.savefig(out_png, dpi=75)
         plt.close(g.figure)
 
-        expected_png = data_dir.joinpath("maps", "outputs", out_png_name)
+        expected_png = test_data_dir / "maps" / "outputs" / out_png_name
 
         images_match, pct_diff = compare_images_approx(
             expected_png, out_png, hash_size=64, max_diff_pct=0.1
@@ -261,7 +265,11 @@ def test_map_geodataframe_column_boundaries_kwargs(
 
 @pytest.mark.filterwarnings("ignore:Geometry is in a geographic:UserWarning")
 def test_map_geodataframe_polygons(
-    data_dir, supply_curve_gdf, county_background_gdf, states_gdf, counties_gdf
+    test_data_dir,
+    supply_curve_gdf,
+    county_background_gdf,
+    states_gdf,
+    counties_gdf,
 ):
     """
     Test that map_geodataframe_column() produces expected output image
@@ -308,11 +316,11 @@ def test_map_geodataframe_polygons(
         plt.tight_layout()
 
         out_png_name = "polygons_map.png"
-        out_png = Path(tempdir).joinpath(out_png_name)
+        out_png = Path(tempdir) / out_png_name
         g.figure.savefig(out_png, dpi=75)
         plt.close(g.figure)
 
-        expected_png = data_dir.joinpath("maps", "outputs", out_png_name)
+        expected_png = test_data_dir / "maps" / "outputs" / out_png_name
 
         images_match, pct_diff = compare_images_approx(
             expected_png, out_png, hash_size=64, max_diff_pct=0.1
@@ -325,7 +333,7 @@ def test_map_geodataframe_polygons(
 
 @pytest.mark.filterwarnings("ignore:Geometry is in a geographic:UserWarning")
 def test_map_geodataframe_column_existing_ax(
-    data_dir, supply_curve_gdf, background_gdf, states_gdf
+    test_data_dir, supply_curve_gdf, background_gdf, states_gdf
 ):
     """
     Test that map_geodataframe_column correctly plots on an existing GeoAxes
@@ -357,19 +365,20 @@ def test_map_geodataframe_column_existing_ax(
             )
 
         out_png_name = "map_2panels.png"
-        out_png = Path(tempdir).joinpath("map_2panels.png")
+        out_png = Path(tempdir) / "map_2panels.png"
         fig.savefig(out_png, dpi=75)
         plt.close(fig)
 
-        expected_png = data_dir.joinpath("maps", "outputs", out_png_name)
+        expected_png = test_data_dir / "maps" / "outputs" / out_png_name
 
         images_match, pct_diff = compare_images_approx(
             expected_png, out_png, hash_size=64, max_diff_pct=0.1
         )
-        assert images_match, (
+        msg = (
             f"Output image does not match expected image {expected_png}"
             f"Difference is {pct_diff * 100}%"
         )
+        assert images_match, msg
 
 
 if __name__ == "__main__":

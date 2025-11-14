@@ -1,12 +1,12 @@
-# -*- coding: utf-8 -*-
 """Tests for plots module"""
+
 import pytest
 import matplotlib
 from matplotlib import pyplot as plt
 from matplotlib import ticker
 import numpy as np
 
-from reVReports.plots import (
+from reVReports.utilities.plots import (
     configure_matplotlib,
     is_numeric,
     wrap_labels,
@@ -68,7 +68,9 @@ def test_wrap_labels_happy():
     """
     fig, ax = plt.subplots(figsize=(4, 4))
     ax.set_xticks([0, 1, 2, 3])
-    ax.set_xticklabels([None, "Long Label Number 1", "Long Label Number 2", None])
+    ax.set_xticklabels(
+        [None, "Long Label Number 1", "Long Label Number 2", None]
+    )
     wrap_labels(ax, width=10)
     new_labels = [label.get_text() for label in ax.get_xticklabels()]
     assert new_labels[1] == "Long Label\nNumber 1"
@@ -161,22 +163,22 @@ def test_autoscale_x_oob():
     plt.close(fig)
 
 
-def test_compare_images_approx_match(data_dir):
+def test_compare_images_approx_match(test_data_dir):
     """
     Unit test for compare_image_approx() - test that it correctly identifies
     that an image matches itself to a high degree of sensitivity.
     """
 
     matches, _ = compare_images_approx(
-        data_dir.joinpath("compare", "map_1.jpg"),
-        data_dir.joinpath("compare", "map_1.jpg"),
+        test_data_dir / "compare" / "map_1.jpg",
+        test_data_dir / "compare" / "map_1.jpg",
         hash_size=64,
         max_diff_pct=0.01,
     )
     assert matches
 
 
-def test_compare_images_approx_no_match(data_dir):
+def test_compare_images_approx_no_match(test_data_dir):
     """
     Unit test for compare_image_approx() - test that it correctly identifies
     that two very similar image matches don't match when given a high degree of
@@ -184,8 +186,8 @@ def test_compare_images_approx_no_match(data_dir):
     """
 
     matches, _ = compare_images_approx(
-        data_dir.joinpath("compare", "map_1.jpg"),
-        data_dir.joinpath("compare", "map_2.jpg"),
+        test_data_dir / "compare" / "map_1.jpg",
+        test_data_dir / "compare" / "map_2.jpg",
         hash_size=64,
         max_diff_pct=0.01,
     )
@@ -226,7 +228,13 @@ def test_format_graph():
     assert ax.get_xlabel() == "X Variable"
     assert ax.get_ylabel() == "Y Variable"
     xticklabels = [label.get_text() for label in ax.get_xticklabels()]
-    assert xticklabels == ["2,000.0", "3,000.0", "4,000.0", "5,000.0", "6,000.0"]
+    assert xticklabels == [
+        "2,000.0",
+        "3,000.0",
+        "4,000.0",
+        "5,000.0",
+        "6,000.0",
+    ]
     yticklabels = [label.get_text() for label in ax.get_yticklabels()]
     assert yticklabels == [
         "2,000.0",

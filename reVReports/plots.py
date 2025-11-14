@@ -235,7 +235,7 @@ class PlotGenerator:
                 style=sc_line_style,
                 ax=ax[0],
             )
-            panel_1 = format_graph(
+            format_graph(
                 panel_1,
                 xmin=0,
                 xmax=None,
@@ -255,7 +255,7 @@ class PlotGenerator:
                 style=sc_line_style,
                 ax=ax[1],
             )
-            panel_2 = format_graph(
+            format_graph(
                 panel_2,
                 xmin=0,
                 xmax=None,
@@ -427,7 +427,7 @@ class PlotGenerator:
                     legend=False,
                     color="#9ebcda",
                 )
-                panel_1 = format_graph(
+                format_graph(
                     panel_1,
                     xlabel=None,
                     ylabel="Cost (million $/MW)",
@@ -445,9 +445,7 @@ class PlotGenerator:
                     legend=False,
                     color="#9ebcda",
                 )
-                panel_2 = format_graph(
-                    panel_2, xlabel=None, ylabel="Distance (km)"
-                )
+                format_graph(panel_2, xlabel=None, ylabel="Distance (km)")
 
                 scenario_outname = scenario_name[0].replace(" ", "_").lower()
                 out_image_path = (

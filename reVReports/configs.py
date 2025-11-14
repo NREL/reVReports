@@ -2,6 +2,8 @@
 
 import json
 from pathlib import Path
+from functools import cached_property
+
 from pydantic import BaseModel, field_validator
 from matplotlib import pyplot as plt
 from matplotlib.colors import to_hex
@@ -146,3 +148,15 @@ class Config(BaseModelStrict):
         with Path(json_path).open("r", encoding="utf-8") as f:
             json_data = json.load(f)
         return cls(**json_data)
+
+    @cached_property
+    def scenario_palette(self):
+        """
+        Get a dictionary mapping scenario names to colors.
+
+        Returns
+        -------
+        dict
+            Dictionary mapping scenario names to colors.
+        """
+        return {scenario.name: scenario.color for scenario in self.scenarios}

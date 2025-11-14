@@ -1,5 +1,10 @@
-# -*- coding: utf-8 -*-
-"""Data module: functions and classes for modifying/augmenting/translating data"""
+"""Data module
+
+Functions and classes for modifying/augmenting/translating data
+"""
+
+from reVReports.exceptions import reVReportsValueError
+
 ORDERED_REGIONS = [
     "Pacific",
     "California",
@@ -75,10 +80,11 @@ def augment_sc_df(
     lcoe_all_in_col="lcoe_all_in_usd_per_mwh",
     cf_col=None,
 ):
-    """
-    Augment an input supply curve dataframe with additional columns needed for
-    standard plots. This function is intended for use on supply curves created with
-    reV version ≥ 0.14.5.
+    """Augment an input supply curve dataframe
+
+    This function augments an input supply curve dataframe with
+    additional columns needed for standard plots. This function is
+    intended for use on supply curves created with reV version ≥ 0.14.5.
 
     Parameters
     ----------
@@ -87,33 +93,32 @@ def augment_sc_df(
     scenario_name : str
         Name of the scenario associated with the supply curve
     scenario_number : int
-        Number of the scenario. This is used to control ordering if multiple scenarios
-        are being plotted. Scenarios will be ordered based on ascending order of
-        this input value (i.e., if you want this scenario to plot first, set
-        scenario_number to 0 and subsequent scenarios to 1, 2, etc.)
+        Number of the scenario. This is used to control ordering if
+        multiple scenarios are being plotted. Scenarios will be ordered
+        based on ascending order of this input value (i.e., if you want
+        this scenario to plot first, set scenario_number to 0 and
+        subsequent scenarios to 1, 2, etc.)
     tech : str
-        The technology of the input supply curves. Must be either `wind` or `pv`.
+        The technology of the input supply curves. Must be either `wind`
+        or `pv`.
     lcoe_all_in_col : str, default="lcoe_all_in_usd_per_mwh"
         Column name that represents the All-in LCOE cost values.
         By default, ``"lcoe_all_in_usd_per_mwh"``.
     cf_col : str, default=None
-        Name of column storing the capacity factor values. By default, this is set to
-        None, and defaults will be automatically set based on the input technology
-        (e.g., "capacity_factor_dc" for "pv", "capacity_factor_ac" for "wind", "osw",
-        and "geo")
+        Name of column storing the capacity factor values. By default,
+        this is set to ``None``, and defaults will be automatically set
+        based on the input technology (e.g., "capacity_factor_dc" for
+        "pv", "capacity_factor_ac" for "wind", "osw", and "geo")
 
     Returns
     -------
     pandas.DataFrame
-        Augmented dataframe with additional columns for the Scenario, scenario_number,
-        and multiple additional quantitative results.
+        Augmented dataframe with additional columns for the Scenario,
+        scenario_number, and multiple additional quantitative results.
     """
 
     # add standard named capacity_mw column
-    if tech == "wind":
-        capacity_col = "capacity_ac_mw"
-        default_cf_col = "capacity_factor_ac"
-    elif tech == "osw":
+    if tech in {"wind", "osw"}:
         capacity_col = "capacity_ac_mw"
         default_cf_col = "capacity_factor_ac"
     elif tech == "pv":
@@ -123,10 +128,11 @@ def augment_sc_df(
         capacity_col = "capacity_ac_mw"
         default_cf_col = "capacity_factor_ac"
     else:
-        raise ValueError(
+        msg = (
             f"Invalid input: tech={tech}. "
             "Valid options are: ['wind', 'pv', 'osw', 'geo']."
         )
+        raise reVReportsValueError(msg)
 
     if cf_col is None:
         cf_col = default_cf_col
@@ -155,30 +161,32 @@ def augment_sc_df(
 
 
 def check_files_match(pattern, dir_1_path, dir_2_path):
-    """
-    Verify that the files in two folders match. Files are filtered by the specified
-    pattern and the contents of the two folders are searched recursively. Only the
-    names of the files and their relative paths within the fodlers are compared -
-    contents of the files are not checked.
+    """Verify that the files in two folders match
+
+    Files are filtered by the specified pattern and the contents of the
+    two folders are searched recursively. Only the names of the files
+    and their relative paths within the folders are compared - contents
+    of the files are not checked.
 
     Parameters
     ----------
     pattern : str
         File pattern used for filtering files in the specified folders.
-    dir_1_path : pathlib.Path
-        Path to the first directory.
-    dir_2_path : pathlib.Path
-        Path to the second directory.
+    dir_1_path, dir_2_path : path-like
+        Path to the first and second directory, respectively.
+
     Returns
     -------
     tuple
-        Returns a tuple with two elements: the first element is a boolean indicating
-        whether the files in the two folders match and the second is a list of
-        differences between the two folders (if applicable). If the files match, the
-        list will be empty.
+        Returns a tuple with two elements: the first element is a
+        boolean indicating whether the files in the two folders match
+        and the second is a list of differences between the two folders
+        (if applicable). If the files match, the list will be empty.
     """
 
-    output_files = [f.relative_to(dir_1_path) for f in dir_1_path.rglob(pattern)]
+    output_files = [
+        f.relative_to(dir_1_path) for f in dir_1_path.rglob(pattern)
+    ]
     expected_output_files = [
         f.relative_to(dir_2_path) for f in dir_2_path.rglob(pattern)
     ]

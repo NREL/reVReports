@@ -1,18 +1,18 @@
-# -*- coding: utf-8 -*-
-"""
-Functionality related to loggers and logging.
-"""
+"""Functionality related to loggers and logging"""
+
 import logging
 import sys
 
 
-LOG_FORMAT = "%(levelname)s - %(asctime)s [%(filename)s:%(lineno)d] : %(message)s"
+LOG_FORMAT = (
+    "%(levelname)s - %(asctime)s [%(filename)s:%(lineno)d] : %(message)s"
+)
 
 
 def get_logger(name, log_level):
-    """
-    Get a logger with the user specified name and log level. Logger will only include
-    a StreamHandler to sys.stdout.
+    """Get a logger with the user specified name and log level
+
+    Logger will only include a StreamHandler to sys.stdout.
 
     Parameters
     ----------

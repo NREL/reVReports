@@ -1,306 +1,455 @@
-# -*- coding: utf-8 -*-
-"""Functionality for generating maps"""
-import warnings
+"""reVReports map generation functions"""
 
+import logging
+from functools import cached_property
+
+import pandas as pd
 import numpy as np
-import mapclassify as mc
-from matplotlib.patheffects import SimpleLineShadow, Normal
+import tqdm
 import geoplot as gplt
+import geopandas as gpd
+from matplotlib import pyplot as plt
 
-from reVReports import DATA_DIR
+from reVReports.configs import VALID_TECHS
+from reVReports.utilities.plots import DPI
+from reVReports.utilities.maps import BOUNDARIES, map_geodataframe_column
+from reVReports.utilities.plots import SMALL_SIZE, BIGGER_SIZE, RC_FONT_PARAMS
+from reVReports.exceptions import reVReportsValueError
 
-DEFAULT_BOUNDARIES = DATA_DIR.joinpath(
-    "ne_50m_admin_1_states_provinces_lakes_conus.geojson"
-)
+
+logger = logging.getLogger(__name__)
 
 
-class YBFixedBounds(np.ndarray):
-    """
-    Helper class for use with a mapclassify classifer. This can used to
-    overwrite the ``yb`` property of a classifier so that the .max() and .min()
-    methods return preset values rather than the maximum and minimum break
-    labels corresponding to the range of data.
+class MapData:
+    """Prepare map inputs from scenario supply curve data"""
 
-    This is used in map_supply_curve_column() to ensure that breaks and colors
-    shown in the legend are always consistent with the input ``breaks`` rather
-    than subject to change based on range of the input ``column``.
-    """
-
-    # pylint: disable=no-member, arguments-differ
-    def __new__(cls, input_array, preset_max, preset_min=0):
+    def __init__(self, config, cap_col):
         """
-        Return a new instance of the class with fixed maximum and minimum
-        values.
 
         Parameters
         ----------
-        input_array : numpy.ndarray
-            Input numpy array, typically sourced from the ``yb`` property of a
-            mapclassify classifier.
-        preset_max : int
-            Maximum value to return when .max() is called. Typically this
-            should be set to the classifier ``k`` property, which is the number
-            of classes in the classifier.
-        preset_min : int, optional
-            Minimum value to return when .min() is called. Under most
-            circumstances, the default value (0) should be used.
-
-        Returns
-        -------
-        YBFixedBounds
-            New instance of YBFixedBounds with present min() and max() values.
+        config : object
+            Map configuration with scenario metadata.
+        cap_col : str
+            Column used for project capacity calculations.
         """
-        array = np.asarray(input_array).view(cls)
-        array.__dict__.update(
-            {
-                "_preset_max": preset_max,
-                "_preset_min": preset_min,
-            }
+        self._config = config
+        self.cap_col = cap_col
+
+    def __iter__(self):
+        """Iterate over scenario names and GeoDataFrames"""
+        return iter(self.scenario_dfs.items())
+
+    @property
+    def config(self):
+        """object: Map configuration instance"""
+        return self._config
+
+    @cached_property
+    def scenario_dfs(self):
+        """dict: Scenario GeoDataFrames keyed by name"""
+        logger.info("Loading and augmenting supply curve data")
+        scenario_dfs = {}
+        for scenario in tqdm.tqdm(
+            self._config.scenarios, total=len(self._config.scenarios)
+        ):
+            scenario_df = pd.read_csv(scenario.source)
+
+            # drop zero capacity sites
+            scenario_sub_df = scenario_df[
+                scenario_df["capacity_ac_mw"] > 0
+            ].copy()
+
+            supply_curve_gdf = gpd.GeoDataFrame(
+                scenario_sub_df,
+                geometry=gpd.points_from_xy(
+                    x=scenario_sub_df["longitude"],
+                    y=scenario_sub_df["latitude"],
+                ),
+                crs="EPSG:4326",
+            )
+            supply_curve_gdf["capacity_density"] = (
+                supply_curve_gdf[self.cap_col]
+                / supply_curve_gdf["area_developable_sq_km"].replace(0, np.nan)
+            ).replace(np.nan, 0)
+
+            scenario_dfs[scenario.name] = supply_curve_gdf
+
+        return scenario_dfs
+
+
+class MapGenerator:
+    """Generate geospatial visualizations from prepared datasets"""
+
+    def __init__(self, map_data):
+        """
+
+        Parameters
+        ----------
+        map_data : MapData
+            Prepared map data container.
+        """
+        self._map_data = map_data
+
+    @property
+    def num_scenarios(self):
+        """int: Number of configured scenarios"""
+        return len(self._map_data.scenario_dfs)
+
+    def build_maps(self, map_vars, out_directory, dpi=DPI, point_size=2.0):
+        """Create scenario maps for each requested variable
+
+        Parameters
+        ----------
+        map_vars : dict
+            Mapping of column names to styling metadata.
+        out_directory : pathlib.Path
+            Directory for saved figures.
+        dpi : int, default=300
+            Output resolution for saved figures.
+        point_size : float, optional
+            Marker size for scenario points, by default 2.0.
+        """
+        n_cols = 2
+        n_rows = int(np.ceil(self.num_scenarios / n_cols))
+        logger.info("Creating maps")
+        for map_var, map_settings in tqdm.tqdm(map_vars.items()):
+            with plt.rc_context(RC_FONT_PARAMS):
+                fig, ax = plt.subplots(
+                    ncols=n_cols,
+                    nrows=n_rows,
+                    figsize=(13, 4 * n_rows),
+                    subplot_kw={
+                        "projection": gplt.crs.AlbersEqualArea(
+                            central_longitude=BOUNDARIES.center_lon,
+                            central_latitude=BOUNDARIES.center_lat,
+                        )
+                    },
+                )
+                for i, (scenario_name, scenario_df) in enumerate(
+                    self._map_data
+                ):
+                    if map_var not in scenario_df.columns:
+                        err = (
+                            f"{map_var} column not found in one or more input "
+                            "supply curves. Consider using the `exclude_maps` "
+                            "configuration option to skip map generation for "
+                            "this column."
+                        )
+                        logger.error(err)
+                    panel = ax.ravel()[i]
+                    panel = map_geodataframe_column(
+                        scenario_df,
+                        map_var,
+                        color_map=map_settings.get("cmap"),
+                        breaks=map_settings.get("breaks"),
+                        map_title=None,
+                        legend_title=map_settings.get("legend_title"),
+                        background_df=BOUNDARIES.background_gdf,
+                        boundaries_df=BOUNDARIES.boundaries_single_part_gdf,
+                        extent=BOUNDARIES.map_extent,
+                        layer_kwargs={
+                            "s": point_size,
+                            "linewidth": 0,
+                            "marker": "o",
+                        },
+                        legend_kwargs={
+                            "marker": "s",
+                            "frameon": False,
+                            "bbox_to_anchor": (1, 0.5),
+                            "loc": "center left",
+                        },
+                        legend=(i + 1 == self.num_scenarios),
+                        ax=panel,
+                    )
+                    panel.patch.set_alpha(0)
+                    panel.set_title(scenario_name, y=0.88)
+
+                self._adjust_panel(fig, ax, map_settings, n_rows)
+                out_image_path = out_directory / f"{map_var}.png"
+                fig.savefig(out_image_path, dpi=dpi, transparent=True)
+                plt.close(fig)
+
+    def _adjust_panel(self, fig, ax, map_settings, n_rows):
+        """Adjust subplot layout and legend anchoring"""
+        n_panels = len(ax.ravel())
+        min_xcoord = -0.04
+        mid_xcoord = 0.465
+        min_ycoord = 0.0
+        mid_ycoord = 0.475
+        if self.num_scenarios in {3, 4}:
+            panel_width = 0.6
+            panel_height = 0.52
+            panel_dims = [panel_width, panel_height]
+
+            lower_lefts = [
+                [mid_xcoord, min_ycoord],
+                [min_xcoord, min_ycoord],
+                [mid_xcoord, mid_ycoord],
+                [min_xcoord, mid_ycoord],
+            ]
+            for j in range(n_panels):
+                coords = lower_lefts[j]
+                ax.ravel()[-j - 1].set_position(coords + panel_dims)
+        elif self.num_scenarios in {1, 2}:
+            ax.ravel()[0].set_position([-0.25, 0.0, 1, 1])
+            ax.ravel()[1].set_position([0.27, 0.0, 1, 1])
+
+        self._correct_legend(
+            fig,
+            map_settings,
+            ax,
+            n_panels,
+            n_rows,
+            mid_xcoord,
+            min_ycoord,
         )
-        return array
 
-    def max(self):
-        """Return preset maximum value."""
-        return self._preset_max
+    def _correct_legend(
+        self, fig, map_settings, ax, n_panels, n_rows, mid_xcoord, min_ycoord
+    ):
+        """Position the consolidated legend panel"""
 
-    def min(self):
-        """Return preset minimum value."""
-        return self._preset_min
+        if self.num_scenarios < n_panels:
+            extra_panel = ax.ravel()[-1]
+            legend_panel_position = extra_panel.get_position()
+            fig.delaxes(extra_panel)
+            legend_font_size = BIGGER_SIZE
+            legend_loc = "center"
+            legend_cols = 1
+        else:
+            legend_font_size = SMALL_SIZE
+            legend_loc = "center left"
+            legend_cols = 3
+            if n_rows == 2:  # noqa: PLR2004
+                legend_panel_position = [
+                    mid_xcoord - 0.06,
+                    min_ycoord - 0.03,
+                    0.2,
+                    0.2,
+                ]
+            elif n_rows == 1:
+                legend_panel_position = [
+                    mid_xcoord - 0.06,
+                    min_ycoord + 0.03,
+                    0.2,
+                    0.2,
+                ]
+
+        legend = fig.axes[-1].get_legend()
+        legend_texts = [t.get_text() for t in legend.texts]
+        legend_handles = legend.legend_handles
+        legend.remove()
+
+        legend_panel = fig.add_subplot(alpha=0, frame_on=False)
+        legend_panel.set_axis_off()
+        legend_panel.set_position(legend_panel_position)
+
+        legend_panel.legend(
+            legend_handles,
+            legend_texts,
+            frameon=False,
+            loc=legend_loc,
+            title=map_settings["legend_title"],
+            ncol=legend_cols,
+            handletextpad=-0.1,
+            columnspacing=0,
+            fontsize=legend_font_size,
+            title_fontproperties={
+                "size": legend_font_size,
+                "weight": "bold",
+            },
+        )
 
 
-def map_geodataframe_column(
-    data_df,
-    column,
-    color_map="viridis",
-    breaks=None,
-    map_title=None,
-    legend_title=None,
-    background_df=None,
-    boundaries_df=None,
-    extent=None,
-    boundaries_kwargs=None,
-    layer_kwargs=None,
-    legend_kwargs=None,
-    projection=gplt.crs.AlbersEqualArea(),
-    legend=True,
-    ax=None,
-):
-    # pylint: disable=too-many-arguments,too-many-branches
-    """
-    Create a cartographic quality map symbolizing the values from an input
-    geodataframe, optionally including a background layer (e.g., CONUS
-    landmass), a boundary layer (e.g., state boundaries), and various map style
-    elements.
+def configure_map_params(config):
+    """Configure map parameters based on technology settings
 
     Parameters
     ----------
-    data_df : geopandas.geodataframe.GeoDataFrame
-        Input GeoDataFrame with values in ``column`` to map. Input geometry
-        type must be one of: ``Point``, ``Polygon``, or ``MultiPolygon``.
-
-        If ``background_df`` and ``extent`` are both None, the extent of this
-        dataframe will set the overall map extent.
-    column : str
-        Name of the column in ``data_df`` to plot.
-    color_map : [str, matplotlib.colors.Colormap], optional
-        Colors to use for mapping the values of ``column``. This can either be
-        the name of a colormap or an actual colormap instance.
-        By default, the color_map will be "viridis".
-    breaks : list, optional
-        List of value breaks to use for classifying the values of ``column``
-        into the colors of ``color_map``. Break values should be provided in
-        ascending order. Values of ``column`` that are below the first break
-        or above the last break will be shown in the first and last classes,
-        respectively. If not specified, the map will be created using
-        a Quantile classification scheme with 5 classes.
-    map_title : str, optional
-        Title to use for the map, by default None.
-    legend_title : str, optional
-        Title to use for the legend, by default None.
-    background_df : geopandas.geodataframe.GeoDataFrame, optional
-        Geodataframe to plot as background, behind ``data_df``. Expected to
-        have geometry type of ``Polygon`` or ``MultiPolygon``. A common case
-        would be to provide polygons representing the landmass, country, or
-        region that you are mapping as the background.
-
-        Providing this layer has the side-effect of creating a dropshadow for
-        the whole map, so is generally recommended for nicer styling of the
-        output map. Configuration of the display of this layer is not currently
-        available to the user.
-
-        If set to ``None`` (default), no background layer will be plotted.
-
-        If specified and ``extent`` is ``None``, the extent of this dataframe
-        will set the overall map extent.
-    boundaries_df : geopandas.geodataframe.GeoDataFrame, optional
-        Geodataframe to plot on the map ``data_df`` as boundaries. Expected
-        to have geometry type of ``Polygon`` or ``MultiPolygon``. A common
-        case would be to provide polygons for states or other sub-regions of
-        interest.
-
-        If set to ``None`` (default), no background layer will be plotted.
-    extent : [list, np.ndarray], optional
-        Extent to zoom to for displaying the map. Should be of the format:
-        [xmin, ymin, xmax, ymax] in the CRS units of data_df. By defaut, this
-        is None, which will result in the extent of the map being set based on
-        background_df (if provided) or data_df.
-    boundaries_kwargs : [dict, None], optional
-        Keyword arguments that can be used to configure display of the
-        boundaries layer. If not specified (=None), it will default to use
-        (``{"linewidth": 0.75, "zorder": 1, "edgecolor": "white"}``), which
-        will result in thin white boundaries being plotted underneath the data
-        layer. To place these on top, change ``zorder`` to ``2``. For other
-        options, refer to
-        https://residentmario.github.io/geoplot/user_guide/
-        Customizing_Plots.html and https://matplotlib.org/stable/api/_as_gen/
-        matplotlib.patches.Polygon.html#matplotlib.patches.Polygon.
-    layer_kwargs : [dict, None], optional
-        Optional styling to be applied to the data layer. By default None,
-        which results in the layer being plotted using the input breaks and
-        colormap and no other changes. As an example, you could change the edge
-        color and line width of a polygon data layer using by specifying
-        ``layer_kwargs={"edgecolor": "gray", "linewidth": 0.5}``. Refer to
-        https://residentmario.github.io/geoplot/user_guide/
-        Customizing_Plots.html#Cosmetic-parameters for other options.
-    legend_kwargs: [dict, None], optional
-        Keyword arguments that can be used to configure display of the
-        legend. If not specified (=None), it will default to use
-        (``legend_kwargs={"marker": "s", "frameon": False,
-        "bbox_to_anchor": (1, 0.5), "loc": "center left"}``).
-        For more information on the options available, refer to
-        https://residentmario.github.io/geoplot/user_guide/
-        Customizing_Plots.html#Legend.
-    projection: gplt.crs.Base, optional
-        Projection to use for creating the map. Default is
-        gplt.crs.AlbersEqualArea(). For names of other options, refer to
-        https://scitools.org.uk/cartopy/docs/v0.15/crs/projections.html.
-    ax : [cartopy.mpl.geoaxes.GeoAxes, None]
-        If specified, the map will be added to the specified existing GeoAxes.
-        If not specified (default), a new GeoAxes will be created and returned.
+    config : object
+        Map configuration containing technology attributes.
 
     Returns
     -------
-    cartopy.mpl.geoaxes.GeoAxes
-        Plot object of the map.
-
-    Raises
-    ------
-    NotImplementedError
-        A NotImplementedError will be raised if ``data_df`` does not have
-        a geometry type of ``Point``, ``Polygon``, or ``MultiPolygon``.
+    tuple
+        Capacity column, point size, and mapping configuration.
     """
+    logger.info("Configuring map settings")
+    map_vars = {
+        config.lcoe_all_in_col: {
+            "breaks": [25, 30, 35, 40, 45, 50, 60, 70],
+            "cmap": "YlGn",
+            "legend_title": "All-in LCOE ($/MWh)",
+        },
+        config.lcoe_site_col: {
+            "breaks": [25, 30, 35, 40, 45, 50, 60, 70],
+            "cmap": "YlGn",
+            "legend_title": "Project LCOE ($/MWh)",
+        },
+        "lcot_usd_per_mwh": {
+            "breaks": [5, 10, 15, 20, 25, 30, 40, 50],
+            "cmap": "YlGn",
+            "legend_title": "LCOT ($/MWh)",
+        },
+        "area_developable_sq_km": {
+            "breaks": [5, 10, 25, 50, 100, 120],
+            "cmap": "BuPu",
+            "legend_title": "Developable Area (sq km)",
+        },
+    }
 
-    if breaks is None:
-        scheme = mc.Quantiles(data_df[column], k=5)
-    else:
-        # ensure ascending order
-        breaks.sort()
-        # add inf as the last break to ensure consistent breaks between maps
-        if breaks[-1] != np.inf:
-            breaks.append(np.inf)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=RuntimeWarning)
-            scheme = mc.UserDefined(data_df[column], bins=breaks)
-        scheme.yb = YBFixedBounds(scheme.yb, preset_max=scheme.k - 1, preset_min=0)
+    cf_col = config.cf_col or "capacity_factor_ac"
 
-    if background_df is not None:
-        drop_shadow_effects = [
-            SimpleLineShadow(
-                shadow_color="black", linewidth=0.5, alpha=0.65, offset=(1, -1)
-            ),
-            SimpleLineShadow(
-                shadow_color="gray", linewidth=0.5, alpha=0.65, offset=(1.5, -1.5)
-            ),
-            Normal(),
-        ]
-        if extent is None:
-            extent = background_df.total_bounds
-
-        ax = gplt.polyplot(
-            background_df,
-            facecolor="#bdbdbd",
-            linewidth=0,
-            edgecolor="#bdbdbd",
-            projection=projection,
-            extent=extent,
-            path_effects=drop_shadow_effects,
-            ax=ax,
-        )
-    else:
-        if extent is None:
-            extent = data_df.total_bounds
-
-    input_geom_types = list(set(data_df.geom_type))
-
-    if boundaries_kwargs is None:
-        boundaries_kwargs = {"linewidth": 0.75, "zorder": 1, "edgecolor": "white"}
-
-    if legend:
-        if legend_kwargs is None:
-            legend_kwargs = {
-                "marker": "s",
-                "frameon": False,
-                "bbox_to_anchor": (1, 0.5),
-                "loc": "center left",
+    point_size = 2.0
+    if config.tech == "pv":
+        cap_col = "capacity_dc_mw"
+        map_vars.update(
+            {
+                "capacity_dc_mw": {
+                    "breaks": [100, 500, 1000, 2000, 3000, 4000],
+                    "cmap": "YlOrRd",
+                    "legend_title": "Capacity DC (MW)",
+                },
+                "capacity_ac_mw": {
+                    "breaks": [100, 500, 1000, 2000, 3000, 4000],
+                    "cmap": "YlOrRd",
+                    "legend_title": "Capacity AC (MW)",
+                },
+                cf_col: {
+                    "breaks": [0.2, 0.25, 0.3, 0.35],
+                    "cmap": "YlOrRd",
+                    "legend_title": "Capacity Factor",
+                },
             }
-        legend_kwargs["title"] = legend_title
+        )
+    elif config.tech == "wind":
+        cap_col = "capacity_ac_mw"
+        map_vars.update(
+            {
+                "capacity_ac_mw": {
+                    "breaks": [60, 120, 180, 240, 275],
+                    "cmap": "Blues",
+                    "legend_title": "Capacity (MW)",
+                },
+                "capacity_density": {
+                    "breaks": [2, 3, 4, 5, 6, 10],
+                    "cmap": "Blues",
+                    "legend_title": "Capacity Density (MW/sq km)",
+                },
+                cf_col: {
+                    "breaks": [0.25, 0.3, 0.35, 0.4, 0.45],
+                    "cmap": "Blues",
+                    "legend_title": "Capacity Factor",
+                },
+                "losses_wakes_pct": {
+                    "breaks": [6, 7, 8, 9, 10],
+                    "cmap": "Purples",
+                    "legend_title": "Wake Losses (%)",
+                },
+            }
+        )
+    elif config.tech == "osw":
+        point_size = 1.5
+        cap_col = "capacity_ac_mw"
+        map_vars.update(
+            {
+                "capacity_ac_mw": {
+                    "breaks": [200, 400, 600, 800, 1000],
+                    "cmap": "PuBu",
+                    "legend_title": "Capacity (MW)",
+                },
+                "capacity_density": {
+                    "breaks": [0.5, 1, 2, 3, 5, 10],
+                    "cmap": "PuBu",
+                    "legend_title": "Capacity Density (MW/sq km)",
+                },
+                cf_col: {
+                    "breaks": [0.3, 0.35, 0.4, 0.45, 0.5],
+                    "cmap": "PuBu",
+                    "legend_title": "Capacity Factor",
+                },
+                "area_developable_sq_km": {
+                    "breaks": [10, 50, 100, 200, 225, 250],
+                    "cmap": "BuPu",
+                    "legend_title": "Developable Area (sq km)",
+                },
+                config.lcoe_all_in_col: {
+                    "breaks": [100, 125, 150, 175, 200],
+                    "cmap": "YlGn",
+                    "legend_title": "All-in LCOE ($/MWh)",
+                },
+                config.lcoe_site_col: {
+                    "breaks": [75, 100, 125, 150, 175, 200],
+                    "cmap": "YlGn",
+                    "legend_title": "Project LCOE ($/MWh)",
+                },
+                "lcot_usd_per_mwh": {
+                    "breaks": [15, 20, 25, 30, 35, 40, 50, 60],
+                    "cmap": "YlGn",
+                    "legend_title": "LCOT ($/MWh)",
+                },
+                "cost_export_usd_per_mw_ac": {
+                    "breaks": [
+                        500_000,
+                        600_000,
+                        700_000,
+                        800_000,
+                        900_000,
+                        1_000_000,
+                    ],
+                    "cmap": "YlGn",
+                    "legend_title": "Export Cable ($/MW)",
+                },
+                "dist_export_km": {
+                    "breaks": [50, 75, 100, 125, 150],
+                    "cmap": "YlGn",
+                    "legend_title": "Export Cable Distance (km)",
+                },
+                "losses_wakes_pct": {
+                    "breaks": [6, 7, 8, 9, 10],
+                    "cmap": "Purples",
+                    "legend_title": "Wake Losses (%)",
+                },
+            }
+        )
+    elif config.tech == "geo":
+        cap_col = "capacity_ac_mw"
+        map_vars.update(
+            {
+                "capacity_ac_mw": {
+                    "breaks": [200, 400, 600, 800, 1000],
+                    "cmap": "YlOrRd",
+                    "legend_title": "Capacity (MW)",
+                },
+                "capacity_density": {
+                    "breaks": [2, 3, 4, 6, 10, 15],
+                    "cmap": "YlOrRd",
+                    "legend_title": "Capacity Density (MW/sq km)",
+                },
+                cf_col: {
+                    "breaks": [0.99, 0.9925, 0.995, 0.9975, 0.999],
+                    "cmap": "YlOrRd",
+                    "legend_title": "Capacity Factor",
+                },
+            }
+        )
     else:
-        legend_kwargs = None
-
-    if input_geom_types == ["Point"]:
-        if layer_kwargs is None:
-            layer_kwargs = {"s": 1.25, "linewidth": 0, "marker": "o"}  # point size
-        ax = gplt.pointplot(
-            data_df,
-            hue=column,
-            legend=legend,
-            scheme=scheme,
-            projection=projection,
-            extent=extent,
-            ax=ax,
-            cmap=color_map,
-            legend_kwargs=legend_kwargs,
-            **layer_kwargs,
+        msg = (
+            f"Invalid input: tech={config.tech}. Valid options are: "
+            f"{VALID_TECHS}"
         )
-    elif input_geom_types in (["Polygon"], ["MultiPolygon"]):
-        ax = gplt.choropleth(
-            data_df,
-            hue=column,
-            legend=legend,
-            scheme=scheme,
-            projection=gplt.crs.AlbersEqualArea(),
-            extent=extent,
-            ax=ax,
-            cmap=color_map,
-            legend_kwargs=legend_kwargs,
-            **layer_kwargs,
-        )
-    else:
-        raise NotImplementedError(
-            f"Mapping has not been implemented for input with "
-            f"geometry types: {input_geom_types}"
-        )
+        raise reVReportsValueError(msg)
 
-    if boundaries_df is not None:
-        gplt.polyplot(
-            boundaries_df,
-            facecolor="None",
-            projection=projection,
-            extent=extent,
-            ax=ax,
-            **boundaries_kwargs,
-        )
+    # add/modify map variables based on input config parameters
+    for map_var in config.map_vars:
+        map_var_data = map_var.model_dump()
+        col = map_var_data.pop("column")
+        map_vars[col] = map_var_data
 
-    # fix last legend entry
-    if legend is True:
-        last_legend_label = ax.legend_.texts[-1]
-        new_label = f"> {last_legend_label.get_text().split(' - ')[0]}"
-        last_legend_label.set_text(new_label)
+    # remove map vars that are in the exclude list
+    for exclude_map in config.exclude_maps:
+        if exclude_map in map_vars:
+            map_vars.pop(exclude_map)
 
-        if legend_title is not None:
-            ax.legend_.set_title(legend_title)
-
-    if map_title is not None:
-        ax.set_title(map_title)
-
-    return ax
+    return cap_col, point_size, map_vars

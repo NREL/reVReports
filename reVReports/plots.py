@@ -1,374 +1,808 @@
-# -*- coding: utf-8 -*-
-"""
-Plotting variables and functions
-"""
-import textwrap
+"""reVReports plot generating functions"""
 
-import matplotlib
-from matplotlib import style as mplstyle
-from matplotlib import ticker
-import seaborn as sns
+import logging
+from functools import cached_property
+
+import pandas as pd
 import numpy as np
-import PIL
-import imagehash
+import tqdm
+import seaborn as sns
+from matplotlib import pyplot as plt
+from matplotlib import ticker
 
-from reVReports.fonts import SANS_SERIF
-
-DPI = 300
-
-DEFAULT_RC_PARAMS = {
-    "patch.edgecolor": (1, 1, 1, 0.5),
-    "patch.linewidth": 0.1,
-}
-NO_OUTLINE_RC_PARAMS = DEFAULT_RC_PARAMS.copy()
-NO_OUTLINE_RC_PARAMS.update({"patch.edgecolor": "none", "patch.force_edgecolor": False})
-
-SMALL_SIZE = 12
-SMALL_MEDIUM_SIZE = 13
-MEDIUM_SIZE = 14
-BIGGER_SIZE = 16
-RC_FONT_PARAMS = {
-    "font.size": SMALL_SIZE,
-    "axes.titlesize": BIGGER_SIZE,
-    "axes.labelsize": BIGGER_SIZE,
-    "xtick.labelsize": MEDIUM_SIZE,
-    "ytick.labelsize": MEDIUM_SIZE,
-    "legend.fontsize": MEDIUM_SIZE,
-    "figure.titlesize": BIGGER_SIZE,
-    "figure.labelweight": "bold",
-    "axes.titleweight": "bold",
-    "axes.labelpad": 8,
-    "axes.labelweight": "bold",
-    "font.family": SANS_SERIF.name,
-}
+from reVReports.data import augment_sc_df, ORDERED_REGIONS
+from reVReports.utilities.plots import (
+    format_graph,
+    wrap_labels,
+    DEFAULT_RC_PARAMS,
+    DPI,
+    NO_OUTLINE_RC_PARAMS,
+    SMALL_SIZE,
+    SMALL_MEDIUM_SIZE,
+    RC_FONT_PARAMS,
+)
+from reVReports.exceptions import reVReportsTypeError
 
 
-def configure_matplotlib():
-    """
-    Adjust settings of matplotlib for faster plotting and hyphen formatting.
-    """
-    # set to use ascii hyphen rather than unicode minus
-    matplotlib.rcParams["axes.unicode_minus"] = False
-    mplstyle.use("fast")
+WIND = {"wind", "osw"}
+logger = logging.getLogger(__name__)
 
 
-def is_numeric(s):
-    """
-    Check whether a variable is numeric by attempting to convert to float.
+class PlotData:
+    """Load and organize supply curve inputs for plotting"""
 
-    Parameters
-    ----------
-    s : Any
-        Variable to check.
+    def __init__(self, config):
+        """
 
-    Returns
-    -------
-    bool
-        True if the number is numeric, false if not.
-    """
-    try:
-        _ = float(s)
-        return True
-    except ValueError:
-        return False
-    except TypeError:
-        return False
+        Parameters
+        ----------
+        config : object
+            Plotting configuration with scenario definitions and column
+            names.
+        """
+        self._config = config
+        self._all_df = None
+        self._scenario_dfs = None
 
+    @property
+    def config(self):
+        """object: Plotting configuration with scenario metadata"""
+        return self._config
 
-def wrap_labels(ax, width, break_long_words=False):
-    """
-    Wrap tick labels of the x axis.
+    @property
+    def all_df(self):
+        """pandas.DataFrame: Combined augmented supply curve records"""
+        if self._all_df is None:
+            self._load_and_augment_supply_curve_data()
+        return self._all_df
 
-    Parameters
-    ----------
-    ax : matplotlib.axes.Axes
-        (sub-)Plot axes of matplotlib image.
-    width : int
-        Maximum width of each line of the wrapped label (in number of characters).
-    break_long_words : bool, optional
-        If True, long words may be hyphenated and split across lines. By default False,
-        which will not split long words.
-    """
+    @property
+    def scenario_dfs(self):
+        """list of pandas.DataFrame: Augmented supply curve scenarios"""
+        if self._scenario_dfs is None:
+            self._load_and_augment_supply_curve_data()
+        return self._scenario_dfs
 
-    labels = []
-    for label in ax.get_xticklabels():
-        text = label.get_text()
-        labels.append(
-            textwrap.fill(text, width=width, break_long_words=break_long_words)
+    @cached_property
+    def top_level_sums_df(self):
+        """pandas.DataFrame: Scenario totals for capacity and energy"""
+        top_level_sums_df = (
+            self.all_df.groupby("Scenario")[
+                [
+                    "area_developable_sq_km",
+                    "capacity_mw",
+                    "annual_energy_site_mwh",
+                ]
+            ]
+            .sum()
+            .reset_index()
+        )
+        top_level_sums_df["capacity_gw"] = (
+            top_level_sums_df["capacity_mw"] / 1000.0
+        )
+        top_level_sums_df["aep_twh"] = (
+            top_level_sums_df["annual_energy_site_mwh"] / 1000.0 / 1000
+        )
+        return top_level_sums_df
+
+    def _load_and_augment_supply_curve_data(self):
+        """Load and augment the supply curve dataset"""
+        logger.info("Loading and augmenting supply curve data")
+        self._scenario_dfs = []
+        for i, scenario in tqdm.tqdm(
+            enumerate(self._config.scenarios),
+            total=len(self._config.scenarios),
+        ):
+            scenario_df = pd.read_csv(scenario.source)
+
+            try:
+                aug_df = augment_sc_df(
+                    scenario_df,
+                    scenario_name=scenario.name,
+                    scenario_number=i,
+                    tech=self._config.tech,
+                    lcoe_all_in_col=self._config.lcoe_all_in_col,
+                )
+            except KeyError:
+                logger.warning(
+                    "Required columns are missing from the input supply "
+                    "curve. Was your supply curve created by reV≥v0.14.5?"
+                )
+                raise
+
+            # drop sites with zero capacity
+            # (this also removes inf values for total_lcoe)
+            aug_df_w_capacity = aug_df[aug_df["capacity_mw"] > 0].copy()
+
+            self._scenario_dfs.append(aug_df_w_capacity)
+
+        # combine the data into a single data frame
+        self._all_df = pd.concat(self._scenario_dfs).sort_values(
+            by=["scenario_number", self._config.lcoe_all_in_col],
+            ascending=True,
         )
 
-    ax.set_xticks(ax.get_xticks())
-    ax.set_xticklabels(labels, rotation=0)
 
+class PlotGenerator:
+    """Build plots from prepared supply curve dataframes"""
 
-def autoscale_y(ax, margin=0.1):
-    """
-    This function rescales the y-axis to fit the subset of data that is visible given
-    the current limited of the x-axis.
+    def __init__(self, plot_data, out_directory, dpi=DPI):
+        """
 
-    Parameters
-    ----------
-    ax : matplotlib.axes.Axes
-        (sub-)Plot axes of matplotlib image.
-    margin : float, optional
-        Padding to use in setting the y limits. By default 0.1, which means 10% of the
-        range of the data subset's y-values.
-    """
+        Parameters
+        ----------
+        plot_data : PlotData
+            Data interface that exposes scenario and combined
+            dataframes.
+        out_directory : pathlib.Path
+            Directory where generated plot images are written.
+        dpi : int, default=300
+            Resolution used when saving matplotlib figures.
+        """
+        self._plot_data = plot_data
+        self._config = plot_data.config
+        self.out_directory = out_directory
+        self.dpi = dpi
 
-    def get_bottom_top(x_data, y_data):
-        """Derive the y-limits to be used based on the visible subset of data."""
-        x_lim_low, x_lim_high = ax.get_xlim()
-        y_displayed = y_data[((x_data >= x_lim_low) & (x_data <= x_lim_high))]
-        if len(y_displayed) == 0:
-            return np.inf, -np.inf
-        height = np.max(y_displayed) - np.min(y_displayed)
-        bot = np.min(y_displayed) - margin * height
-        top = np.max(y_displayed) + margin * height
-        return bot, top
+    @property
+    def all_df(self):
+        """pandas.DataFrame: Combined augmented supply curve records"""
+        return self._plot_data.all_df
 
-    if len(ax.patches) > 0:
-        raise NotImplementedError(
-            "Support for plots with patches has not been implemented."
+    @property
+    def scenario_dfs(self):
+        """list of pandas.DataFrame: Augmented supply curve scenarios"""
+        return self._plot_data.scenario_dfs
+
+    def build_supply_curves(self):
+        """Create supply curve line plots for capacity and generation"""
+        logger.info("Plotting supply curves")
+        # Prepare data for plotting supply curves
+        # Set up data frame we can use to plot all-in
+        # and site lcoe together on supply curve plots
+        supply_curve_total_lcoe_df = self.all_df[
+            [
+                self._config.lcoe_all_in_col,
+                "capacity_mw",
+                "annual_energy_site_mwh",
+                "cumul_capacit_gw",
+                "cumul_aep_twh",
+                "Scenario",
+            ]
+        ].copy()
+        supply_curve_total_lcoe_df["LCOE Value"] = "All-In LCOE"
+        supply_curve_total_lcoe_df = supply_curve_total_lcoe_df.rename(
+            columns={self._config.lcoe_all_in_col: "lcoe"}
         )
 
-    bot, top = np.inf, -np.inf
-    lines = ax.get_lines()
-    collections = ax.collections
-    if len(lines) > 0:
-        for line in lines:
-            x_data = line.get_xdata()
-            y_data = line.get_ydata()
-            new_bot, new_top = get_bottom_top(x_data, y_data)
-            if new_bot < bot:
-                bot = new_bot
-            if new_top > top:
-                top = new_top
-    elif len(collections) > 0:
-        for collection in collections:
-            x_data = collection.get_offsets()[:, 0].data
-            y_data = collection.get_offsets()[:, 1].data
-            new_bot, new_top = get_bottom_top(x_data, y_data)
-            if new_bot < bot:
-                bot = new_bot
-            if new_top > top:
-                top = new_top
-    else:
-        raise ValueError("No lines or collections found in plot.")
-
-    if bot != np.inf:
-        ax.set_ylim(ymin=bot)
-    if top != -np.inf:
-        ax.set_ylim(ymax=top)
-
-
-def autoscale_x(ax, margin=0.1):
-    """
-    This function rescales the x-axis to fit the subset of data that is visible given
-    the current limited of the y-axis.
-
-    Parameters
-    ----------
-    ax : matplotlib.axes.Axes
-        (sub-)Plot axes of matplotlib image.
-    margin : float, optional
-        Padding to use in setting the x limits. By default 0.1, which means 10% of the
-        range of the data subset's x-values.
-    """
-
-    def get_left_right(x_data, y_data):
-        """Derive the x-limits to be used based on the visible subset of data."""
-        y_lim_low, y_lim_high = ax.get_ylim()
-        x_displayed = x_data[((y_data >= y_lim_low) & (y_data <= y_lim_high))]
-        if len(x_displayed) == 0:
-            return np.inf, -np.inf
-        width = np.max(x_displayed) - np.min(x_displayed)
-        left = np.min(x_displayed) - margin * width
-        right = np.max(x_displayed) + margin * width
-        return left, right
-
-    if len(ax.patches) > 0:
-        raise NotImplementedError(
-            "Support for plots with patches has not been implemented."
+        supply_curve_site_lcoe_df = self.all_df[
+            [
+                self._config.lcoe_site_col,
+                "capacity_mw",
+                "annual_energy_site_mwh",
+                "Scenario",
+            ]
+        ].copy()
+        supply_curve_site_lcoe_df = supply_curve_site_lcoe_df.sort_values(
+            by=[self._config.lcoe_site_col], ascending=True
+        )
+        supply_curve_site_lcoe_df["cumul_capacit_gw"] = (
+            supply_curve_site_lcoe_df.groupby("Scenario")[
+                "capacity_mw"
+            ].cumsum()
+            / 1000
+        )
+        supply_curve_site_lcoe_df["cumul_aep_twh"] = (
+            supply_curve_site_lcoe_df.groupby("Scenario")[
+                "annual_energy_site_mwh"
+            ].cumsum()
+            / 1000
+            / 1000
+        )
+        supply_curve_site_lcoe_df["LCOE Value"] = "Site LCOE"
+        supply_curve_site_lcoe_df = supply_curve_site_lcoe_df.rename(
+            columns={self._config.lcoe_site_col: "lcoe"}
         )
 
-    left, right = np.inf, -np.inf
-    lines = ax.get_lines()
-    collections = ax.collections
-    if len(lines) > 0:
-        for line in lines:
-            x_data = line.get_xdata()
-            y_data = line.get_ydata()
-            new_left, new_right = get_left_right(x_data, y_data)
-            if new_left < left:
-                left = new_left
-            if new_right > right:
-                right = new_right
-    elif len(collections) > 0:
-        for collection in collections:
-            x_data = collection.get_offsets()[:, 0].data
-            y_data = collection.get_offsets()[:, 1].data
-            new_left, new_right = get_left_right(x_data, y_data)
-            if new_left < left:
-                left = new_left
-            if new_right > right:
-                right = new_right
-    else:
-        raise ValueError("No lines or collections found in plot.")
+        supply_curve_df = pd.concat(
+            [supply_curve_total_lcoe_df, supply_curve_site_lcoe_df]
+        )
 
-    if left != np.inf:
-        ax.set_xlim(xmin=left)
-    if right != -np.inf:
-        ax.set_xlim(xmax=right)
-
-
-def format_graph(
-    graph,
-    xmin=None,
-    xmax=None,
-    ymin=None,
-    ymax=None,
-    xlabel=None,
-    ylabel=None,
-    autoscale_to_other_axis=False,
-    x_formatter=ticker.StrMethodFormatter("{x:,.0f}"),
-    y_formatter=ticker.StrMethodFormatter("{x:,.0f}"),
-    legend_frame_on=False,
-    move_legend_outside=False,
-    drop_legend=False,
-    title=None,
-    legend_title=None,
-):
-    """
-    Formatter for single seaborn plots. Does not work for facet plots or
-    seaborn.objects.Plots.
-
-    Parameters
-    ----------
-    graph : matplotlib.axes.Axes
-        (sub-)Plot axes of matplotlib image, created by seaborn (e.g., seaborn.Boxplot).
-    xmin : float, optional
-        Minimum x-value to display. By default None, which will have no effect on on
-        the graph.
-    xmax : float, optional
-        Maximum x-value to display. By default None, which will have no effect on on
-        the graph.
-    ymin : float, optional
-        Minimum y-value to display. By default None, which will have no effect on on
-        the graph.
-    ymax : _type_, optional
-        Maximum y-value to display. By default None, which will have no effect on on
-        the graph.
-    xlabel : str, optional
-        Label to use for the x-axis, by default None which will result in no x-axis
-        label.
-    ylabel : str, optional
-        Label to use for the y-axis, by default None which will result in no y-axis
-        label.
-    autoscale_to_other_axis : bool, optional
-        If True, and the limits of one of the axes is changed (e.g., using ``xmax`` or
-        ``ymax``, etc.), the other axis will be rescaled to adjust to the subset of data
-        displayed in the graph.
-    x_formatter : matplotlib.ticker.StrMethodFormatter, optional
-        Formatter to use for x-axis ticks. Default is
-        ticker.StrMethodFormatter("{x:,.0f}"), which will use commas for thousands.
-        Specify ``None`` to apply no formatting.
-    y_formatter : matplotlib.ticker.StrMethodFormatter, optional
-        Formatter to use for y-axis ticks. Default is
-        ticker.StrMethodFormatter("{x:,.0f}"), which will use commas for thousands.
-        Specify ``None`` to apply no formatting.
-    legend_frame_on : bool, optional
-        If True, and there is a legend, it will include a legend frame (i.e., outline).
-        By default False, which hides the legend frame.
-    move_legend_outside : bool, optional
-        If True and there is a legend, move the legend outside the plot (to the right
-        side of the plot, centered vertically). By default False, which leaves the
-        legend position unchanged.
-    drop_legend : bool, optional
-        If True and there is a legend, the legend will be removed/hidden. By default
-        False, which leaves the legend visible.
-    title : str, optional
-        Title to use for the graph. By default None, which displays no title.
-    legend_title : str, optional
-        Title to use for the legend. By default None, which leaves the legend title
-        unchanged.
-
-    Returns
-    -------
-    matplotlib.axes.Axes
-        Formatted graph.
-    """
-
-    graph.set(xlim=(xmin, xmax))
-    graph.set(ylim=(ymin, ymax))
-    if ymax is None and xmax is not None and autoscale_to_other_axis is True:
-        autoscale_y(graph)
-    if xmax is None and ymax is not None and autoscale_to_other_axis is True:
-        autoscale_x(graph)
-
-    graph.set(xlabel=xlabel)
-    graph.set(ylabel=ylabel)
-
-    if x_formatter:
-        ticks = graph.xaxis.get_ticklabels()
-        if len(ticks) > 0:
-            if is_numeric(ticks[0].get_text()):
-                graph.axes.xaxis.set_major_formatter(x_formatter)
-    if y_formatter:
-        ticks = graph.yaxis.get_ticklabels()
-        if len(ticks) > 0:
-            if is_numeric(ticks[0].get_text()):
-                graph.axes.yaxis.set_major_formatter(y_formatter)
-
-    if graph.legend_ is not None:
-        if drop_legend:
-            graph.legend_.remove()
+        # Supply curves - two panel figure showing cumulative capacity
+        # and generation by LCOE
+        if self._config.lcoe_all_in_col != self._config.lcoe_site_col:
+            sc_line_style = "LCOE Value"
         else:
-            graph.legend_.set_frame_on(legend_frame_on)
+            sc_line_style = None
+        with (
+            sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+            plt.rc_context(
+                RC_FONT_PARAMS
+                | {
+                    "xtick.labelsize": SMALL_SIZE,
+                    "ytick.labelsize": SMALL_SIZE,
+                }
+            ),
+        ):
+            fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(13, 5))
+            panel_1 = sns.lineplot(
+                data=supply_curve_df,
+                y="lcoe",
+                x="cumul_capacit_gw",
+                hue="Scenario",
+                palette=self._config.scenario_palette,
+                hue_order=self._config.scenario_palette,
+                style=sc_line_style,
+                ax=ax[0],
+            )
+            format_graph(
+                panel_1,
+                xmin=0,
+                xmax=None,
+                ymin=0,
+                ymax=self._config.plots.site_lcoe_max,
+                xlabel="Cumulative Capacity (GW)",
+                ylabel="Levelized Cost of Energy ($/MWh)",
+                drop_legend=True,
+            )
+            panel_2 = sns.lineplot(
+                data=supply_curve_df,
+                y="lcoe",
+                x="cumul_aep_twh",
+                hue="Scenario",
+                palette=self._config.scenario_palette,
+                hue_order=self._config.scenario_palette,
+                style=sc_line_style,
+                ax=ax[1],
+            )
+            format_graph(
+                panel_2,
+                xmin=0,
+                xmax=None,
+                ymin=0,
+                ymax=self._config.plots.site_lcoe_max,
+                xlabel="Cumulative Annual Generation (TWh)",
+                ylabel="Levelized Cost of Energy ($/MWh)",
+                move_legend_outside=True,
+            )
+            out_image_path = self.out_directory / "supply_curves.png"
+            plt.tight_layout()
+            fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
+            plt.close(fig)
 
-            if move_legend_outside:
-                sns.move_legend(graph, "center left", bbox_to_anchor=(1, 0.5))
+        # single panel supply curve - LCOE vs cumulative capacity
+        with (
+            sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+            plt.rc_context(RC_FONT_PARAMS),
+        ):
+            fig, ax = plt.subplots(figsize=(6.5, 5.5))
+            ax = sns.lineplot(
+                data=supply_curve_df,
+                y="lcoe",
+                x="cumul_capacit_gw",
+                hue="Scenario",
+                palette=self._config.scenario_palette,
+                hue_order=self._config.scenario_palette,
+                style=sc_line_style,
+                ax=ax,
+            )
+            # handles, labels = ax.get_legend_handles_labels()
+            ax = format_graph(
+                ax,
+                xmin=0,
+                xmax=None,
+                ymin=0,
+                ymax=self._config.plots.site_lcoe_max,
+                xlabel="Cumulative Capacity (GW)",
+                ylabel="Levelized Cost of Energy ($/MWh)",
+                drop_legend=False,
+            )
+            sns.move_legend(
+                ax, "lower center", ncol=2, fontsize=SMALL_MEDIUM_SIZE
+            )
+            out_image_path = (
+                self.out_directory / "supply_curves_capacity_only.png"
+            )
+            plt.tight_layout()
+            fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
+            plt.close(fig)
 
-            graph.legend_.set_title(legend_title)
+    def build_capacity_by_region_bar_chart(self):
+        """Create bar chart of economic capacity by region"""
+        logger.info("Plotting capacity by region and scenario barchart")
+        # Regional capacity comparison
+        # Sum the capacity by nrel region
+        region_col = (
+            "offtake_state" if self._config.tech == "osw" else "nrel_region"
+        )
+        econ_cap_by_region_df = (
+            self.all_df[
+                self.all_df[self._config.lcoe_all_in_col]
+                <= self._config.plots.total_lcoe_max
+            ]
+            .groupby(["Scenario", region_col])["capacity_mw"]
+            .sum()
+            .reset_index()
+        )
+        econ_cap_by_region_df["capacity_gw"] = (
+            econ_cap_by_region_df["capacity_mw"] / 1000
+        )
+        econ_cap_by_region_df = econ_cap_by_region_df.sort_values(
+            "capacity_gw", ascending=False
+        )
 
-    if title is not None:
-        graph.set_title(title)
+        with (
+            sns.axes_style("whitegrid", NO_OUTLINE_RC_PARAMS),
+            plt.rc_context(RC_FONT_PARAMS),
+        ):
+            fig, ax = plt.subplots(figsize=(8, 5))
+            g = sns.barplot(
+                econ_cap_by_region_df,
+                y=region_col,
+                x="capacity_gw",
+                hue="Scenario",
+                dodge=True,
+                palette=self._config.scenario_palette,
+                ax=ax,
+            )
+            g = format_graph(g, xlabel="Total Capacity (GW)", ylabel="Region")
+            if self._config.tech == "osw":
+                g.set_yticks(g.get_yticks())
+                g.set_yticklabels(g.get_yticklabels(), fontsize=10)
+            out_image_path = (
+                self.out_directory / "regional_capacity_barchart.png"
+            )
+            plt.tight_layout()
+            fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
+            plt.close(fig)
 
-    return graph
+    def build_transmission_box_plots(self):
+        """Create box plots of transmission costs and distances"""
+        logger.info("Plotting Transmission Cost and Distance Box plots")
+        for scenario_name, scenario_df in self.all_df.groupby(
+            ["Scenario"], as_index=False
+        ):
+            # extract transmission cost data in tidy/long format
+            if self._config.tech == "osw":
+                trans_cost_vars = {
+                    "cost_export_usd_per_mw_ac": "Export",
+                    "cost_interconnection_usd_per_mw": "POI",
+                    "cost_reinforcement_usd_per_mw_ac": "Reinforcement",
+                    "cost_total_trans_usd_per_mw_ac": "Total",
+                }
+                trans_dist_vars = {
+                    "dist_export_km": "Export",
+                    "dist_spur_km": "POI",
+                    "dist_reinforcement_km": "Reinforcement",
+                }
+            else:
+                trans_cost_vars = {
+                    "cost_interconnection_usd_per_mw": "POI",
+                    "cost_reinforcement_usd_per_mw_ac": "Reinforcement",
+                    "cost_total_trans_usd_per_mw_ac": "Total",
+                }
+                trans_dist_vars = {
+                    "dist_spur_km": "POI",
+                    "dist_reinforcement_km": "Reinforcement",
+                }
+
+            trans_cost_df = scenario_df[list(trans_cost_vars.keys())].melt(
+                value_name="cost_per_mw"
+            )
+            trans_cost_df["Transmission Component"] = trans_cost_df[
+                "variable"
+            ].replace(trans_cost_vars)
+            trans_cost_df["Cost ($/MW)"] = trans_cost_df["cost_per_mw"] / 1e6
+            trans_cost_df = trans_cost_df.replace(
+                to_replace=np.inf, value=np.nan
+            )
+            trans_cost_df = trans_cost_df.dropna(axis=0)
+
+            # extract transmission distance data in tidy/long format
+            trans_dist_df = scenario_df[list(trans_dist_vars.keys())].melt(
+                value_name="Distance (km)"
+            )
+            trans_dist_df["Transmission Component"] = trans_dist_df[
+                "variable"
+            ].replace(trans_dist_vars)
+            trans_dist_df.replace(to_replace=np.inf, value=np.nan)
+            trans_dist_df = trans_dist_df.replace(
+                to_replace=np.inf, value=np.nan
+            )
+            trans_dist_df = trans_dist_df.dropna(axis=0)
+
+            with (
+                sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+                plt.rc_context(RC_FONT_PARAMS),
+            ):
+                fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(2 * 6.5, 5))
+                panel_1 = sns.boxplot(
+                    trans_cost_df,
+                    x="Transmission Component",
+                    y="Cost ($/MW)",
+                    showfliers=False,
+                    dodge=False,
+                    width=0.5,
+                    ax=ax[0],
+                    legend=False,
+                    color="#9ebcda",
+                )
+                format_graph(
+                    panel_1,
+                    xlabel=None,
+                    ylabel="Cost (million $/MW)",
+                    y_formatter=ticker.StrMethodFormatter("{x:,.1f}"),
+                )
+
+                panel_2 = sns.boxplot(
+                    trans_dist_df,
+                    x="Transmission Component",
+                    y="Distance (km)",
+                    showfliers=False,
+                    dodge=False,
+                    width=1 / 3,
+                    ax=ax[1],
+                    legend=False,
+                    color="#9ebcda",
+                )
+                format_graph(panel_2, xlabel=None, ylabel="Distance (km)")
+
+                scenario_outname = scenario_name[0].replace(" ", "_").lower()
+                out_image_path = (
+                    self.out_directory
+                    / f"transmission_cost_dist_boxplot_{scenario_outname}.png"
+                )
+                plt.tight_layout()
+                fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
+                plt.close(fig)
+
+    def build_box_plots(self):
+        """Create box plots for scenario level metrics"""
+        logger.info("Plotting box plots")
+        boxplot_vars = {
+            "lcoe": {
+                "All-in-LCOE ($/MWh)": self._config.lcoe_all_in_col,
+                "Site LCOE ($/MWh)": self._config.lcoe_site_col,
+            },
+            "trans_dist": {
+                "Point-of-Interconnect Distance (km)": "dist_spur_km",
+                "Reinforcement Distance (km)": "dist_reinforcement_km",
+            },
+            "trans_cost": {
+                "Point-of-Interconnect Costs ($/MW)": (
+                    "cost_interconnection_usd_per_mw"
+                ),
+                "Reinforcement Costs ($/MW)": (
+                    "cost_reinforcement_usd_per_mw_ac"
+                ),
+            },
+            "Project Site Capacity (MW)": "capacity_mw",
+        }
+        if (
+            self._config.tech in WIND
+            and "losses_wakes_pct" in self.all_df.columns
+        ):
+            boxplot_vars["Wake Losses (%)"] = "losses_wakes_pct"
+        if self._config.tech == "osw":
+            # add plots for export cable costs and distance weird syntax
+            # below is to ensure Export Cable plots are first
+            boxplot_vars["trans_dist"] = {
+                "Export Cable Distance (km)": "dist_export_km"
+            } | boxplot_vars["trans_dist"]
+            boxplot_vars["trans_cost"] = {
+                "Export Cable Costs ($/MW)": "cost_export_usd_per_mw_ac"
+            } | boxplot_vars["trans_cost"]
+
+        for label, var_map in boxplot_vars.items():
+            if isinstance(var_map, dict):
+                out_filename = label
+                n_panels = len(var_map)
+                y_vars = list(var_map.values())
+                # get the maximum value to use on the y axis
+                # use simple boxplot to get this
+                ymax = 0
+                ymin = 0
+                for scenario_df in self.scenario_dfs:
+                    dummy_boxplot = scenario_df.boxplot(
+                        column=y_vars, return_type=None, showfliers=False
+                    )
+                    ymax = max(max(dummy_boxplot.get_ylim()) * 1.05, ymax)
+                    ymin = min(min(dummy_boxplot.get_ylim()) * 1, ymin)
+                    plt.close(dummy_boxplot.figure)
+                with (
+                    sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+                    plt.rc_context(RC_FONT_PARAMS),
+                ):
+                    fig, ax = plt.subplots(
+                        nrows=1, ncols=n_panels, figsize=(n_panels * 6.5, 5)
+                    )
+
+                    for i, var_label in enumerate(var_map):
+                        var = var_map[var_label]
+                        panel = sns.boxplot(
+                            self.all_df[~self.all_df[var].isna()],
+                            x="Scenario",
+                            y=var,
+                            palette=self._config.scenario_palette,
+                            showfliers=False,
+                            dodge=False,
+                            width=0.5,
+                            ax=ax[i],
+                            hue="Scenario",
+                            legend=False,
+                        )
+                        panel = format_graph(
+                            panel,
+                            xlabel=None,
+                            ylabel=var_label,
+                            drop_legend=True,
+                            ymax=ymax,
+                            ymin=ymin,
+                        )
+                        wrap_labels(panel, 10)
+                        panel.set_xticks(panel.get_xticks())
+                        panel.set_xticklabels(
+                            panel.get_xticklabels(), weight="bold"
+                        )
+
+            elif isinstance(var_map, str):
+                var = var_map
+                var_label = label
+                out_filename = (
+                    var_label.split(" (", maxsplit=1)[0]
+                    .replace(" ", "_")
+                    .lower()
+                )
+                ymax = 0
+                ymin = 0
+                for scenario_df in self.scenario_dfs:
+                    dummy_boxplot = scenario_df.boxplot(
+                        column=var, return_type=None, showfliers=False
+                    )
+                    ymax = max(max(dummy_boxplot.get_ylim()) * 1.05, ymax)
+                    ymin = min(min(dummy_boxplot.get_ylim()) * 1, ymin)
+                    plt.close(dummy_boxplot.figure)
+                with (
+                    sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+                    plt.rc_context(RC_FONT_PARAMS),
+                ):
+                    fig, ax = plt.subplots(figsize=(6.5, 5))
+                    g = sns.boxplot(
+                        self.all_df,
+                        x="Scenario",
+                        y=var,
+                        palette=self._config.scenario_palette,
+                        showfliers=False,
+                        dodge=False,
+                        width=0.5,
+                        ax=ax,
+                        hue="Scenario",
+                        legend=False,
+                    )
+                    g = format_graph(
+                        g,
+                        xlabel=None,
+                        ylabel=var_label,
+                        drop_legend=True,
+                        ymax=ymax,
+                        ymin=ymin,
+                    )
+                    wrap_labels(g, 10)
+            else:
+                msg = "Unexpected type: expected dict or str"
+                raise reVReportsTypeError(msg)
+            out_image_path = (
+                self.out_directory / f"{out_filename}_boxplots.png"
+            )
+            plt.tight_layout()
+            fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
+            plt.close(fig)
+
+    def build_histograms(self):
+        """Create histograms for core supply curve variables"""
+        logger.info("Plotting histograms")
+        hist_vars = [
+            {
+                "var": self._config.lcoe_all_in_col,
+                "fmt_kwargs": {
+                    "ylabel": "Project Site Area (sq. km.)",
+                    "xmax": self._config.plots.total_lcoe_max,
+                    "xlabel": "All-In LCOE ($/MWh)",
+                    "xmin": 0,
+                },
+                "hist_kwargs": {
+                    "bins": 30,
+                    "weights": "area_developable_sq_km",
+                    "binrange": (0, self._config.plots.total_lcoe_max),
+                },
+            },
+            {
+                "var": "capacity_mw",
+                "fmt_kwargs": {
+                    "ylabel": "Project Site Count",
+                    "xlabel": "Project Capacity (MW)",
+                },
+                "hist_kwargs": {"binwidth": 6}
+                if self._config.tech in WIND
+                else {},
+            },
+        ]
+        if self._config.tech in WIND:
+            if "n_turbines" in self.all_df.columns:
+                n_turbines_max = (self.all_df["n_turbines"].max() + 5).round(
+                    -1
+                )
+                hist_vars.append(
+                    {
+                        "var": "n_turbines",
+                        "fmt_kwargs": {
+                            "ylabel": "Project Site Count",
+                            "xlabel": "Number of Turbines",
+                        },
+                        "hist_kwargs": {
+                            "binwidth": 5,
+                            "binrange": (0, n_turbines_max),
+                        },
+                    }
+                )
+            if "losses_wakes_pct" in self.all_df.columns:
+                losses_wakes_pct_max = self.all_df["losses_wakes_pct"].max()
+                hist_vars.append(
+                    {
+                        "var": "losses_wakes_pct",
+                        "fmt_kwargs": {
+                            "ylabel": "Project Site Count",
+                            "xlabel": "Wake Losses (%)",
+                        },
+                        "hist_kwargs": {
+                            "binwidth": 0.5,
+                            "binrange": (0, losses_wakes_pct_max),
+                        },
+                    }
+                )
+
+        for hist_var in hist_vars:
+            with (
+                sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+                plt.rc_context(RC_FONT_PARAMS),
+            ):
+                fig, ax = plt.subplots(figsize=(8, 5))
+
+                x_var = hist_var["var"]
+                g = sns.histplot(
+                    self.all_df,
+                    x=x_var,
+                    element="step",
+                    fill=False,
+                    hue="Scenario",
+                    palette=self._config.scenario_palette,
+                    ax=ax,
+                    **hist_var["hist_kwargs"],
+                )
+                g = format_graph(g, **hist_var["fmt_kwargs"])
+                legend_lines = g.get_legend().get_lines()
+                for i, line in enumerate(reversed(g.lines)):
+                    new_width = line.get_linewidth() + i * 0.75
+                    line.set_linewidth(new_width)
+                    legend_lines[i].set_linewidth(new_width)
+                out_image_path = self.out_directory / f"{x_var}_histogram.png"
+                plt.tight_layout()
+                fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
+                plt.close(fig)
+
+    def build_regional_box_plots(self):
+        """Create regional box plots for key metrics"""
+        logger.info("Plotting regional box plots")
+        region_col = (
+            "offtake_state" if self._config.tech == "osw" else "nrel_region"
+        )
+        reg_box_vars = [
+            {
+                "var": self._config.lcoe_all_in_col,
+                "fmt_kwargs": {"xlabel": "All-in LCOE ($/MWh)"},
+                "box_kwargs": {},
+            },
+            {
+                "var": "lcot_usd_per_mwh",
+                "fmt_kwargs": {
+                    "xlabel": "Levelized Cost of Transmission ($/MWh)"
+                },
+                "box_kwargs": {},
+            },
+            {
+                "var": "capacity_density",
+                "fmt_kwargs": {"xlabel": "Capacity Density (MW/sq. km.)"},
+                "box_kwargs": {},
+            },
+        ]
+        ordered_regions = ORDERED_REGIONS
+        if self._config.tech == "osw":
+            ordered_regions = list(
+                self.all_df.groupby("offtake_state")
+                .sum("capacity_ac_mw")
+                .sort_values("capacity_ac_mw", ascending=False)
+                .index
+            )
+        for reg_box_var in reg_box_vars:
+            x_var = reg_box_var["var"]
+            with (
+                sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+                plt.rc_context(RC_FONT_PARAMS),
+            ):
+                fig, ax = plt.subplots(figsize=(8, 5))
+                g = sns.boxplot(
+                    self.all_df.reset_index(),
+                    x=x_var,
+                    y=region_col,
+                    hue="Scenario",
+                    showfliers=False,
+                    order=ordered_regions,
+                    palette=self._config.scenario_palette,
+                    legend=True,
+                    dodge=True,
+                    gap=0.3,
+                    ax=ax,
+                    **reg_box_var["box_kwargs"],
+                )
+                g = format_graph(
+                    g,
+                    ylabel="Region",
+                    move_legend_outside=True,
+                    **reg_box_var["fmt_kwargs"],
+                )
+                if self._config.tech == "osw":
+                    g.set_yticks(g.get_yticks())
+                    g.set_yticklabels(g.get_yticklabels(), fontsize=10)
+
+                out_image_path = (
+                    self.out_directory / f"{x_var}_regional_boxplots.png"
+                )
+                plt.tight_layout()
+                fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
+                plt.close(fig)
 
 
-def compare_images_approx(image_1_path, image_2_path, hash_size=12, max_diff_pct=0.25):
-    """
-    Check if two images match approximately.
+def make_bar_plot(
+    data_df, y_col, ylabel, scenario_palette, out_image_path, dpi
+):
+    """Create a bar plot comparing scenario totals
 
     Parameters
     ----------
-    image_1_path : pathlib.Path
-        File path to first image.
-    image_2_path : pathlib.Path
-        File path to first image.
-    hash_size : int, optional
-        Size of the image hashes that will be used for image comparison,
-        by default 12. Increase to make the check more precise, decrease to
-        make it more approximate.
-    max_diff_pct : float, optional
-        Tolerance for the amount of difference allowed, by default 0.05 (= 5%).
-        Increase to allow for a larger delta between the image hashes, decrease
-        to make the check stricter and require a smaller delta between the
-        image hashes.
-
-    Returns
-    -------
-    bool
-        Returns true if the images match approximately, false if not.
+    data_df : pandas.DataFrame
+        Dataframe containing pre-aggregated scenario totals.
+    y_col : str
+        Column name that holds the metric to plot on the y-axis.
+    ylabel : str
+        Axis label describing the plotted metric.
+    scenario_palette : dict
+        Mapping of scenario names to palette colors, used for ordering.
+    out_image_path : pathlib.Path
+        Destination path for the saved figure.
+    dpi : int
+        Resolution used when writing the figure to disk.
     """
-
-    expected_hash = imagehash.phash(PIL.Image.open(image_1_path), hash_size=hash_size)
-    out_hash = imagehash.phash(PIL.Image.open(image_2_path), hash_size=hash_size)
-
-    max_diff_bits = int(np.ceil(hash_size**2 * max_diff_pct))
-
-    diff = expected_hash - out_hash
-    matches = diff <= max_diff_bits
-    pct_diff = float(diff) / hash_size**2
-
-    return matches, pct_diff
+    logger.info("Plotting total %s by scenario bar chart", ylabel)
+    with (
+        sns.axes_style("whitegrid", DEFAULT_RC_PARAMS),
+        plt.rc_context(RC_FONT_PARAMS),
+    ):
+        fig, ax = plt.subplots(figsize=(8, 5))
+        ymax = data_df[y_col].max() * 1.05
+        g = sns.barplot(
+            data_df,
+            x="Scenario",
+            y=y_col,
+            hue="Scenario",
+            palette=scenario_palette,
+            order=scenario_palette,
+            ax=ax,
+            legend=False,
+        )
+        g = format_graph(g, xlabel=None, ylabel=ylabel, ymax=ymax)
+        wrap_labels(g, 10)
+        g.set_xticks(g.get_xticks())
+        g.set_xticklabels(g.get_xticklabels(), weight="bold")
+        plt.tight_layout()
+        g.figure.savefig(out_image_path, dpi=dpi, transparent=True)
+        plt.close(fig)

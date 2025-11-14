@@ -7,13 +7,11 @@ import json
 
 import click
 import pandas as pd
-import tqdm
 from pydantic import ValidationError
 from matplotlib import font_manager
 
 from reVReports import __version__
 from reVReports.configs import Config
-from reVReports.data import augment_sc_df
 from reVReports import characterizations
 from reVReports.fonts import SANS_SERIF, SANS_SERIF_BOLD
 from reVReports import logs
@@ -233,43 +231,6 @@ def _load_config(config_file):
         LOGGER.info("\t%s: %s", scenario.name, scenario.source.name)
 
     return config
-
-
-def _load_and_augment_supply_curve_data(config, n_scenarios):
-    LOGGER.info("Loading and augmenting supply curve data")
-    scenario_dfs = []
-    for i, scenario in tqdm.tqdm(
-        enumerate(config.scenarios), total=n_scenarios
-    ):
-        scenario_df = pd.read_csv(scenario.source)
-
-        try:
-            aug_df = augment_sc_df(
-                scenario_df,
-                scenario_name=scenario.name,
-                scenario_number=i,
-                tech=config.tech,
-                lcoe_all_in_col=config.lcoe_all_in_col,
-            )
-        except KeyError:
-            LOGGER.warning(
-                "Required columns are missing from the input supply curve. "
-                "Was your supply curve created by reV≥v0.14.5?"
-            )
-            raise
-
-        # drop sites with zero capacity
-        # (this also removes inf values for total_lcoe)
-        aug_df_w_capacity = aug_df[aug_df["capacity_mw"] > 0].copy()
-
-        scenario_dfs.append(aug_df_w_capacity)
-
-    # combine the data into a single data frame
-    all_df = pd.concat(scenario_dfs)
-    all_df = all_df.sort_values(
-        by=["scenario_number", config.lcoe_all_in_col], ascending=True
-    )
-    return all_df, scenario_dfs
 
 
 def _display_summary_statistics(plot_data):

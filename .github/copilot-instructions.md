@@ -152,7 +152,7 @@ Example: Add a new supply-curve plot template.
 - Follow Development Guidelines in `docs/source/dev/README.rst` for deeper details.
 - Keep functions small; prefer pure helpers in `utilities/` with focused responsibilities.
 - Prefer simple dicts over dataclasses.
-- Avoid complex inheritance
+- Avoid complex inheritance.
 
 ## 13. Quick Triage Guide for the Agent
 - Characterizations: `reVReports/characterizations.py` and fixtures under

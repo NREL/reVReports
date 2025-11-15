@@ -93,8 +93,9 @@ repository = "https://github.com/NREL/reVReports"
 [tool.setuptools.packages]
 find = { include = ["reV*"] }
 
-[tool.setuptools.dynamic]
-version = {attr = "reVReports.version.__version__"}
+[tool.setuptools_scm]
+fallback_version = "9999"
+version_file = "reVReports/_version.py"
 
 
 [tool.pixi.workspace]

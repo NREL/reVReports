@@ -134,7 +134,13 @@ dmypy.json
 # visual studio
 .vscode/
 
+# Misc
 /scripts
+
 # pixi environments
 .pixi/*
 !.pixi/config.toml
+
+
+# Dynamic versioning
+reVReports/_version.py

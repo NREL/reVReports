@@ -16832,7 +16832,7 @@ packages:
 - pypi: ./
   name: revreports
   version: 1.0.15
-  sha256: 295790ff972b6c512cdb376ac4d72b0f3b16035a69164b7ed3fc7ee9b7e5cb6b
+  sha256: 0093ec031370e024d2f499d2482442be9bf8277a973117eb1c3661b407eec3af
   requires_dist:
   - cartopy>=0.24,<0.25
   - click>=8.1.7,<9

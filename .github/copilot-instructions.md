@@ -20,7 +20,7 @@ regression-friendly assets for report generation.
   (72 for docstrings). Ruff also runs format checks.
 - Testing: Pytest (unit-style and integration-style cases in `tests/`),
   coverage via `pytest-cov`, optional parallel runs through `pytest-xdist`.
-- Docs: Sphinx (doc extra) and Markdown guides (`README.md`, `USAGE.md`),
+- Docs: Sphinx (doc extra) and guides (`README.rst`, `USAGE.md`),
   published on GitHub Pages.
 - CLI: Click entry point `reVReports.cli:main` orchestrates plot/map
   generation and characterizations.

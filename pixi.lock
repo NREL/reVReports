@@ -16831,8 +16831,8 @@ packages:
   timestamp: 1733734886897
 - pypi: ./
   name: revreports
-  version: 1.0.16.dev11+ge0a5ed786.d20251115
-  sha256: 16fda0589f35c7cd9fbaaae7cefb6db1e05841ea406c3e07717b6e9f7eec834e
+  version: 1.0.16.dev17+g87d2ef375
+  sha256: c73fddfa5a59a773d8fe5a0a312e3989b1714c4d582e9297fc287ebc8b6f308c
   requires_dist:
   - cartopy>=0.24,<0.25
   - click>=8.1.7,<9

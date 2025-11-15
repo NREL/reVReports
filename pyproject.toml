@@ -10,7 +10,7 @@ build-backend = 'setuptools.build_meta'
 name = "reVReports"
 dynamic = ["version"]
 description = "For creating standardized graphics to summarize/report outputs from reV supply curves."
-readme = "README.md"
+readme = "README.rst"
 authors = [
   {name = "Michael Gleason", email = "mike.gleason@nrel.gov"},
 ]
@@ -111,6 +111,7 @@ doc = { features = ["default", "doc"], solve-group = "dev" }
 build = { features = ["default", "build"], solve-group = "dev" }
 
 [tool.pixi.tasks]
+geo-demo = { cmd = "reVReports maps -c config_geo.json -o ../../", cwd = "tests/data"}
 
 [tool.pixi.dependencies]
 cartopy = ">=0.24,<0.25"

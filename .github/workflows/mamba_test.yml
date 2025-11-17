@@ -4,7 +4,7 @@ on: pull_request
 
 jobs:
   build:
-    runs-on: macos-lates
+    runs-on: macos-latest
     permissions:
       contents: read
     strategy:

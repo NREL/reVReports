@@ -5,19 +5,7 @@ permissions:
 on:
   push:
     branches: [main]
-    paths:
-      - reVReports/**
-      - tests/**
-      - .github/workflows/ci-python.yml
-      - pyproject.toml
-      - pixi.lock
   pull_request:
-    paths:
-      - reVReports/**
-      - tests/**
-      - .github/workflows/ci-python.yml
-      - pyproject.toml
-      - pixi.lock
   workflow_dispatch:
 
 jobs:
@@ -36,3 +24,88 @@ jobs:
           version: "latest"
           args: "format --check"
           src: "./reVReports"
+
+  locked-tests:
+    needs: lint
+    name: Pixi-Locked Unit Tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+
+    - uses: prefix-dev/setup-pixi@v0.9.3
+      with:
+        pixi-version: v0.59.0
+        locked: true
+        cache: true
+        cache-write: false
+        environments: dev
+
+    - run: |
+        pixi reinstall -e dev --locked reVReports
+        pixi run -e dev --locked tests
+
+  unit-tests:
+    needs: lint
+    name: Python Unit Tests (Pixi)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+
+    - uses: prefix-dev/setup-pixi@v0.9.3
+      with:
+        pixi-version: v0.59.0
+        locked: true
+        cache: true
+        cache-write: ${{ github.ref == 'refs/heads/main' }}
+        environments: dev
+
+    - run: |
+        pixi reinstall -e dev reVReports
+        pixi run -e dev tests-u
+
+  integration-tests:
+    needs: lint
+    name: Python Integration Tests (Pixi)
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      max-parallel: 8
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+    - name: Checkout Repo
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+        fetch-tags: true
+
+    - uses: prefix-dev/setup-pixi@v0.9.3
+      with:
+        pixi-version: v0.59.0
+        locked: true
+        cache: true
+        cache-write: false
+        environments: dev
+
+    - run: |
+        pixi reinstall -e dev reVReports
+        pixi run -e dev tests-i

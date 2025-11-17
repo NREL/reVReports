@@ -2,13 +2,13 @@
 reVReports
 **********
 
-|License| |Ruff| |Pixi| |SWR|
+|License| |Zenodo| |PythonV| |PyPi| |Ruff| |Pixi| |SWR|
 
-.. |PythonV| image:: https://badge.fury.io/py/NREL-COMPASS.svg
-    :target: https://pypi.org/project/NREL-COMPASS/
+.. |PythonV| image:: https://badge.fury.io/py/reVReports.svg
+    :target: https://pypi.org/project/reVReports/
 
-.. |PyPi| image:: https://img.shields.io/pypi/pyversions/NREL-COMPASS.svg
-    :target: https://pypi.org/project/NREL-COMPASS/
+.. |PyPi| image:: https://img.shields.io/pypi/pyversions/reVReports.svg
+    :target: https://pypi.org/project/reVReports/
 
 .. |Ruff| image:: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
     :target: https://github.com/astral-sh/ruff
@@ -22,8 +22,8 @@ reVReports
 .. |SWR| image:: https://img.shields.io/badge/SWR--25--29_-blue?label=NREL
     :alt: Static Badge
 
-.. |Zenodo| image:: https://zenodo.org/badge/892830182.svg
-    :target: https://doi.org/10.5281/zenodo.17173409
+.. |Zenodo| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.17633670.svg
+    :target: https://doi.org/10.5281/zenodo.17633670
 
 .. inclusion-intro
 
@@ -39,7 +39,7 @@ The quickest way to install reVReports for users is from PyPi:
 
 .. code-block:: bash
 
-    pip install revreports
+    pip install reVReports
 
 If you would like to install and run reVReports from source, we recommend using `pixi <https://pixi.sh/latest/>`_:
 

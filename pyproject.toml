@@ -113,6 +113,11 @@ build = { features = ["default", "build"], solve-group = "dev" }
 [tool.pixi.tasks]
 geo-demo = { cmd = "reVReports maps -c config_geo.json -o ../../", cwd = "tests/data"}
 
+[tool.pixi.feature.test.tasks]
+tests = "pytest --durations=20 -rapP -vv --cov=reVReports --cov-report=html --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=90 tests/"
+tests-u = "pytest --durations=20 -rapP -vv --cov=reVReports --cov-report=html --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=50 tests/unit"
+tests-i = "pytest --durations=20 -rapP -vv --cov=reVReports --cov-report=html --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=70 tests/integration"
+
 [tool.pixi.feature.build.tasks]
 build-wheels = { cmd = "uv build --sdist --wheel --out-dir dist/ ." }
 check-wheels = { cmd = ["twine", "check", "dist/*"], depends-on = ["build-wheels"] }

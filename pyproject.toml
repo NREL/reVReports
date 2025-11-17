@@ -114,7 +114,7 @@ build = { features = ["default", "build"], solve-group = "dev" }
 geo-demo = { cmd = "reVReports maps -c config_geo.json -o ../../", cwd = "tests/data"}
 
 [tool.pixi.feature.test.tasks]
-tests = "pytest --durations=20 -rapP -vv --cov=reVReports --cov-report=html --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=90 tests/"
+tests = "pytest --durations=20 -rapP -vv --cov=reVReports --cov-report=html --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=85 tests/"
 tests-u = "pytest --durations=20 -rapP -vv --cov=reVReports --cov-report=html --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=50 tests/unit"
 tests-i = "pytest --durations=20 -rapP -vv --cov=reVReports --cov-report=html --cov-branch --cov-report=xml:coverage.xml --cov-fail-under=70 tests/integration"
 

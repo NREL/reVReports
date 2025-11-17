@@ -64,7 +64,7 @@ pixi run -e dev reVReports --help
 pixi run -e doc sphinx-build -b html docs docs/_build/html
 
 # Build distribution artifacts
-pixi run -e build python -m build
+pixi run -e build build-wheels
 ```
 To add a new dependency, use `pixi add <package>`; this updates `pyproject.toml` and the lockfile atomically.
 Use `pixi add --feature dev <package>` to add a dependency that is only used for development (tests, linting, docs, etc.).

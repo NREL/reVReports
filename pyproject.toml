@@ -113,6 +113,11 @@ build = { features = ["default", "build"], solve-group = "dev" }
 [tool.pixi.tasks]
 geo-demo = { cmd = "reVReports maps -c config_geo.json -o ../../", cwd = "tests/data"}
 
+[tool.pixi.feature.build.tasks]
+build-wheels = { cmd = "uv build --sdist --wheel --out-dir dist/ ." }
+check-wheels = { cmd = ["twine", "check", "dist/*"], depends-on = ["build-wheels"] }
+upload-wheels = { cmd = ["twine", "upload", "dist/*"], depends-on = ["check-wheels"] }
+
 [tool.pixi.dependencies]
 cartopy = ">=0.24,<0.25"
 click = ">=8.1.7,<9"

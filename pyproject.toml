@@ -325,3 +325,17 @@ omit = [
 ]
 
 
+[tool.pytest.ini_options]
+addopts = "--disable-warnings"
+testpaths = [
+  "tests/unit",
+  "tests/integration",
+]
+filterwarnings = [
+    "ignore:set_ticklabels()*:UserWarning",
+    "ignore:The 'geom_factory' function is deprecated in Shapely 2.0*:DeprecationWarning",
+    "ignore:Not enough unique values in array to form 5 classes*:UserWarning",
+    "ignore:Skipping .*No .* provided:UserWarning",
+    "ignore:vert.* bool will be deprecated in a future version.*:PendingDeprecationWarning",
+    "ignore:The 'shapely.geos' module is deprecated*:DeprecationWarning",
+]

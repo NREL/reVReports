@@ -144,3 +144,9 @@ dmypy.json
 
 # Dynamic versioning
 reVReports/_version.py
+
+# Documentation
+docs/_build/
+docs/source/_autosummary/
+docs/source/jupyter/*.png
+docs/source/jupyter/*_*.rst

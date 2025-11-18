@@ -1,6 +1,5 @@
 """Configuration module"""
 
-import json
 from pathlib import Path
 from functools import cached_property
 

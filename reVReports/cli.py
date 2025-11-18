@@ -56,7 +56,8 @@ def main(ctx, verbose):
 @click.option(
     "--out-path",
     "-o",
-    required=True,
+    required=False,
+    default=None,
     type=click.Path(exists=False, path_type=Path),
     help=(
         "Path to output folder where plots will be saved. "
@@ -76,7 +77,8 @@ def plots(config_file, out_path, dpi):
 
     config = _load_config(config_file)
 
-    # make output directory (only if needed)
+    if out_path is None:
+        out_path = config_file.parent
     out_path.mkdir(parents=False, exist_ok=True)
 
     plot_data = PlotData(config)
@@ -123,7 +125,8 @@ def plots(config_file, out_path, dpi):
 @click.option(
     "--out-path",
     "-o",
-    required=True,
+    required=False,
+    default=None,
     type=click.Path(exists=False, path_type=Path),
     help=(
         "Path to output folder where plots will be saved. "
@@ -148,6 +151,8 @@ def maps(config_file, out_path, dpi):
         LOGGER.error("Cannot map more than %d scenarios.", MAX_NUM_SCENARIOS)
         sys.exit(1)
 
+    if out_path is None:
+        out_path = config_file.parent
     out_path.mkdir(parents=False, exist_ok=True)
 
     cap_col, point_size, map_vars = configure_map_params(config)

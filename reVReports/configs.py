@@ -73,6 +73,7 @@ class Config(BaseModelStrict):
     lcoe_site_col: str = "lcoe_site_usd_per_mwh"
     lcoe_all_in_col: str = "lcoe_all_in_usd_per_mwh"
     cf_col: str = None
+    prefix_outputs: bool = False
 
     @field_validator("scenarios")
     def default_scenario_colors(cls, value):  # noqa: N805

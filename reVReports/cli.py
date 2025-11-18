@@ -111,7 +111,7 @@ def plots(config_file, out_path, dpi):
         dpi=dpi,
     )
 
-    plotter = PlotGenerator(plot_data, out_path, dpi)
+    plotter = PlotGenerator(plot_data, out_path, dpi, config.prefix_outputs)
     plotter.build_supply_curves()
     plotter.build_capacity_by_region_bar_chart()
     plotter.build_transmission_box_plots()
@@ -167,7 +167,13 @@ def maps(config_file, out_path, dpi):
 
     map_data = MapData(config, cap_col=cap_col)
     plotter = MapGenerator(map_data)
-    plotter.build_maps(map_vars, out_path, dpi, point_size=point_size)
+    plotter.build_maps(
+        map_vars,
+        out_path,
+        dpi,
+        point_size=point_size,
+        prefix_outputs=config.prefix_outputs,
+    )
 
     LOGGER.info("Command completed successfully.")
 

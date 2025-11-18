@@ -121,7 +121,6 @@ class MapGenerator:
         n_rows = int(np.ceil(self.num_scenarios / n_cols))
         logger.info("Creating maps")
         for map_var, map_settings in tqdm.tqdm(map_vars.items()):
-            logger.info("   - Creating map for %r", map_var)
             with plt.rc_context(RC_FONT_PARAMS):
                 fig, ax = plt.subplots(
                     ncols=n_cols,

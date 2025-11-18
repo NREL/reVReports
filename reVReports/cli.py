@@ -21,7 +21,7 @@ from reVReports.utilities.plots import configure_matplotlib, DPI
 
 font_manager.fontManager.ttflist.extend([SANS_SERIF, SANS_SERIF_BOLD])
 
-LOGGER = logs.get_logger(__name__, "INFO")
+LOGGER = logs.get_logger("reVReports", "INFO")
 MAX_NUM_SCENARIOS = 4
 
 configure_matplotlib()

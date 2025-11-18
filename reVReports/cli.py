@@ -77,8 +77,7 @@ def plots(config_file, out_path, dpi):
 
     config = _load_config(config_file)
 
-    if out_path is None:
-        out_path = config_file.parent
+    out_path = config_file.parent if out_path is None else Path(out_path)
     out_path.mkdir(parents=False, exist_ok=True)
 
     plot_data = PlotData(config)
@@ -159,8 +158,7 @@ def maps(config_file, out_path, dpi):
         LOGGER.error("Cannot map more than %d scenarios.", MAX_NUM_SCENARIOS)
         sys.exit(1)
 
-    if out_path is None:
-        out_path = config_file.parent
+    out_path = config_file.parent if out_path is None else Path(out_path)
     out_path.mkdir(parents=False, exist_ok=True)
 
     cap_col, point_size, map_vars = configure_map_params(config)

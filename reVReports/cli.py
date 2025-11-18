@@ -50,7 +50,7 @@ def main(ctx, verbose):
     "--config-file",
     "-c",
     required=True,
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     help="Path to input configuration JSON file.",
 )
 @click.option(
@@ -126,7 +126,7 @@ def plots(config_file, out_path, dpi):
     "--config-file",
     "-c",
     required=True,
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     help="Path to input configuration JSON file.",
 )
 @click.option(

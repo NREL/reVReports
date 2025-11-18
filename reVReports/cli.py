@@ -85,21 +85,29 @@ def plots(config_file, out_path, dpi):
     _display_summary_statistics(plot_data)
     _summarize_state_level_results(plot_data.all_df, out_path)
 
+    out_fp = (
+        "plot_total_capacity.png"
+        if config.prefix_outputs
+        else "total_capacity.png"
+    )
     make_bar_plot(
         data_df=plot_data.top_level_sums_df,
         y_col="capacity_gw",
         ylabel="Capacity (GW)",
         scenario_palette=config.scenario_palette,
-        out_image_path=out_path / "total_capacity.png",
+        out_image_path=out_path / out_fp,
         dpi=dpi,
     )
 
+    out_fp = (
+        "plot_total_area.png" if config.prefix_outputs else "total_area.png"
+    )
     make_bar_plot(
         data_df=plot_data.top_level_sums_df,
         y_col="area_developable_sq_km",
         ylabel="Developable Area (sq. km.)",
         scenario_palette=config.scenario_palette,
-        out_image_path=out_path / "total_area.png",
+        out_image_path=out_path / out_fp,
         dpi=dpi,
     )
 

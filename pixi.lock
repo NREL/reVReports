@@ -18659,8 +18659,8 @@ packages:
   requires_python: '>=3.9'
 - pypi: ./
   name: revreports
-  version: 1.1.1.dev1+g8e5cd0b05.d20251118
-  sha256: 0092881174dde513cd1521b1db1eee8b274d79a5fbdd14ab4ec95c6bff9abc63
+  version: 1.1.1.dev11+g43f302c08.d20251119
+  sha256: a38a497756b7773e6bcd6ac0a29e40d1759bc1905b14172952764bd4206a0db6
   requires_dist:
   - cartopy>=0.24,<0.25
   - click>=8.1.7,<9

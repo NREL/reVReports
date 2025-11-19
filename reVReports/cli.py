@@ -21,7 +21,7 @@ from reVReports.utilities.plots import configure_matplotlib, DPI
 
 font_manager.fontManager.ttflist.extend([SANS_SERIF, SANS_SERIF_BOLD])
 
-LOGGER = logs.get_logger(__name__, "INFO")
+LOGGER = logs.get_logger("reVReports", "INFO")
 MAX_NUM_SCENARIOS = 4
 
 configure_matplotlib()
@@ -50,13 +50,14 @@ def main(ctx, verbose):
     "--config-file",
     "-c",
     required=True,
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     help="Path to input configuration JSON file.",
 )
 @click.option(
     "--out-path",
     "-o",
-    required=True,
+    required=False,
+    default=None,
     type=click.Path(exists=False, path_type=Path),
     help=(
         "Path to output folder where plots will be saved. "
@@ -76,32 +77,40 @@ def plots(config_file, out_path, dpi):
 
     config = _load_config(config_file)
 
-    # make output directory (only if needed)
+    out_path = config_file.parent if out_path is None else Path(out_path)
     out_path.mkdir(parents=False, exist_ok=True)
 
     plot_data = PlotData(config)
     _display_summary_statistics(plot_data)
     _summarize_state_level_results(plot_data.all_df, out_path)
 
+    out_fp = (
+        "plot_total_capacity.png"
+        if config.prefix_outputs
+        else "total_capacity.png"
+    )
     make_bar_plot(
         data_df=plot_data.top_level_sums_df,
         y_col="capacity_gw",
         ylabel="Capacity (GW)",
         scenario_palette=config.scenario_palette,
-        out_image_path=out_path / "total_capacity.png",
+        out_image_path=out_path / out_fp,
         dpi=dpi,
     )
 
+    out_fp = (
+        "plot_total_area.png" if config.prefix_outputs else "total_area.png"
+    )
     make_bar_plot(
         data_df=plot_data.top_level_sums_df,
         y_col="area_developable_sq_km",
         ylabel="Developable Area (sq. km.)",
         scenario_palette=config.scenario_palette,
-        out_image_path=out_path / "total_area.png",
+        out_image_path=out_path / out_fp,
         dpi=dpi,
     )
 
-    plotter = PlotGenerator(plot_data, out_path, dpi)
+    plotter = PlotGenerator(plot_data, out_path, dpi, config.prefix_outputs)
     plotter.build_supply_curves()
     plotter.build_capacity_by_region_bar_chart()
     plotter.build_transmission_box_plots()
@@ -117,13 +126,14 @@ def plots(config_file, out_path, dpi):
     "--config-file",
     "-c",
     required=True,
-    type=click.Path(exists=True),
+    type=click.Path(exists=True, path_type=Path),
     help="Path to input configuration JSON file.",
 )
 @click.option(
     "--out-path",
     "-o",
-    required=True,
+    required=False,
+    default=None,
     type=click.Path(exists=False, path_type=Path),
     help=(
         "Path to output folder where plots will be saved. "
@@ -148,13 +158,20 @@ def maps(config_file, out_path, dpi):
         LOGGER.error("Cannot map more than %d scenarios.", MAX_NUM_SCENARIOS)
         sys.exit(1)
 
+    out_path = config_file.parent if out_path is None else Path(out_path)
     out_path.mkdir(parents=False, exist_ok=True)
 
     cap_col, point_size, map_vars = configure_map_params(config)
 
     map_data = MapData(config, cap_col=cap_col)
     plotter = MapGenerator(map_data)
-    plotter.build_maps(map_vars, out_path, dpi, point_size=point_size)
+    plotter.build_maps(
+        map_vars,
+        out_path,
+        dpi,
+        point_size=point_size,
+        prefix_outputs=config.prefix_outputs,
+    )
 
     LOGGER.info("Command completed successfully.")
 

@@ -126,7 +126,9 @@ class PlotData:
 class PlotGenerator:
     """Build plots from prepared supply curve dataframes"""
 
-    def __init__(self, plot_data, out_directory, dpi=DPI):
+    def __init__(
+        self, plot_data, out_directory, dpi=DPI, prefix_outputs=False
+    ):
         """
 
         Parameters
@@ -138,11 +140,15 @@ class PlotGenerator:
             Directory where generated plot images are written.
         dpi : int, default=300
             Resolution used when saving matplotlib figures.
+        prefix_outputs : bool, default=False
+            If True, output plot filenames are prefixed with 'plot_'.
+            By default, ``False``.
         """
         self._plot_data = plot_data
         self._config = plot_data.config
         self.out_directory = out_directory
         self.dpi = dpi
+        self.prefix_outputs = prefix_outputs
 
     @property
     def all_df(self):
@@ -265,7 +271,12 @@ class PlotGenerator:
                 ylabel="Levelized Cost of Energy ($/MWh)",
                 move_legend_outside=True,
             )
-            out_image_path = self.out_directory / "supply_curves.png"
+            out_fp = (
+                "plot_supply_curves.png"
+                if self.prefix_outputs
+                else "supply_curves.png"
+            )
+            out_image_path = self.out_directory / out_fp
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
             plt.close(fig)
@@ -300,9 +311,12 @@ class PlotGenerator:
             sns.move_legend(
                 ax, "lower center", ncol=2, fontsize=SMALL_MEDIUM_SIZE
             )
-            out_image_path = (
-                self.out_directory / "supply_curves_capacity_only.png"
+            out_fp = (
+                "plot_supply_curves_capacity_only.png"
+                if self.prefix_outputs
+                else "supply_curves_capacity_only.png"
             )
+            out_image_path = self.out_directory / out_fp
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
             plt.close(fig)
@@ -349,9 +363,13 @@ class PlotGenerator:
             if self._config.tech == "osw":
                 g.set_yticks(g.get_yticks())
                 g.set_yticklabels(g.get_yticklabels(), fontsize=10)
-            out_image_path = (
-                self.out_directory / "regional_capacity_barchart.png"
+
+            out_fp = (
+                "plot_regional_capacity_barchart.png"
+                if self.prefix_outputs
+                else "regional_capacity_barchart.png"
             )
+            out_image_path = self.out_directory / out_fp
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
             plt.close(fig)
@@ -448,10 +466,19 @@ class PlotGenerator:
                 format_graph(panel_2, xlabel=None, ylabel="Distance (km)")
 
                 scenario_outname = scenario_name[0].replace(" ", "_").lower()
-                out_image_path = (
-                    self.out_directory
-                    / f"transmission_cost_dist_boxplot_{scenario_outname}.png"
+
+                out_fp = (
+                    (
+                        "plot_transmission_cost_dist_boxplot_"
+                        f"{scenario_outname}.png"
+                    )
+                    if self.prefix_outputs
+                    else (
+                        "transmission_cost_dist_boxplot_"
+                        f"{scenario_outname}.png"
+                    )
                 )
+                out_image_path = self.out_directory / out_fp
                 plt.tight_layout()
                 fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
                 plt.close(fig)
@@ -496,7 +523,6 @@ class PlotGenerator:
         for label, var_map in boxplot_vars.items():
             if isinstance(var_map, dict):
                 out_filename = label
-                n_panels = len(var_map)
                 y_vars = list(var_map.values())
                 # get the maximum value to use on the y axis
                 # use simple boxplot to get this
@@ -514,7 +540,9 @@ class PlotGenerator:
                     plt.rc_context(RC_FONT_PARAMS),
                 ):
                     fig, ax = plt.subplots(
-                        nrows=1, ncols=n_panels, figsize=(n_panels * 6.5, 5)
+                        nrows=1,
+                        ncols=len(var_map),
+                        figsize=(len(var_map) * 6.5, 5),
                     )
 
                     for i, var_label in enumerate(var_map):
@@ -591,9 +619,13 @@ class PlotGenerator:
             else:
                 msg = "Unexpected type: expected dict or str"
                 raise reVReportsTypeError(msg)
-            out_image_path = (
-                self.out_directory / f"{out_filename}_boxplots.png"
+
+            out_fp = (
+                f"plot_{out_filename}_boxplots.png"
+                if self.prefix_outputs
+                else f"{out_filename}_boxplots.png"
             )
+            out_image_path = self.out_directory / out_fp
             plt.tight_layout()
             fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
             plt.close(fig)
@@ -685,7 +717,13 @@ class PlotGenerator:
                     new_width = line.get_linewidth() + i * 0.75
                     line.set_linewidth(new_width)
                     legend_lines[i].set_linewidth(new_width)
-                out_image_path = self.out_directory / f"{x_var}_histogram.png"
+
+                out_fp = (
+                    f"plot_{x_var}_histogram.png"
+                    if self.prefix_outputs
+                    else f"{x_var}_histogram.png"
+                )
+                out_image_path = self.out_directory / out_fp
                 plt.tight_layout()
                 fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
                 plt.close(fig)
@@ -754,9 +792,12 @@ class PlotGenerator:
                     g.set_yticks(g.get_yticks())
                     g.set_yticklabels(g.get_yticklabels(), fontsize=10)
 
-                out_image_path = (
-                    self.out_directory / f"{x_var}_regional_boxplots.png"
+                out_fp = (
+                    f"plot_{x_var}_regional_boxplots.png"
+                    if self.prefix_outputs
+                    else f"{x_var}_regional_boxplots.png"
                 )
+                out_image_path = self.out_directory / out_fp
                 plt.tight_layout()
                 fig.savefig(out_image_path, dpi=self.dpi, transparent=True)
                 plt.close(fig)

@@ -1,12 +1,12 @@
 """Configuration module"""
 
-import json
 from pathlib import Path
 from functools import cached_property
 
 from pydantic import BaseModel, field_validator
 from matplotlib import pyplot as plt
 from matplotlib.colors import to_hex
+from gaps.config import load_config
 
 from reVReports.exceptions import reVReportsValueError
 
@@ -73,6 +73,7 @@ class Config(BaseModelStrict):
     lcoe_site_col: str = "lcoe_site_usd_per_mwh"
     lcoe_all_in_col: str = "lcoe_all_in_usd_per_mwh"
     cf_col: str = None
+    prefix_outputs: bool = False
 
     @field_validator("scenarios")
     def default_scenario_colors(cls, value):  # noqa: N805
@@ -145,9 +146,7 @@ class Config(BaseModelStrict):
         Config
             Configuration settings.
         """
-        with Path(json_path).open("r", encoding="utf-8") as f:
-            json_data = json.load(f)
-        return cls(**json_data)
+        return cls(**load_config(json_path, resolve_paths=True))
 
     @cached_property
     def scenario_palette(self):

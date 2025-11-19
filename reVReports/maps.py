@@ -96,7 +96,14 @@ class MapGenerator:
         """int: Number of configured scenarios"""
         return len(self._map_data.scenario_dfs)
 
-    def build_maps(self, map_vars, out_directory, dpi=DPI, point_size=2.0):
+    def build_maps(
+        self,
+        map_vars,
+        out_directory,
+        dpi=DPI,
+        point_size=2.0,
+        prefix_outputs=False,
+    ):
         """Create scenario maps for each requested variable
 
         Parameters
@@ -166,7 +173,12 @@ class MapGenerator:
                     panel.set_title(scenario_name, y=0.88)
 
                 self._adjust_panel(fig, ax, map_settings, n_rows)
-                out_image_path = out_directory / f"{map_var}.png"
+                out_fp = (
+                    f"map_{map_var}.png"
+                    if prefix_outputs
+                    else f"{map_var}.png"
+                )
+                out_image_path = out_directory / out_fp
                 fig.savefig(out_image_path, dpi=dpi, transparent=True)
                 plt.close(fig)
 

@@ -39,6 +39,7 @@ dependencies = [
     "geoplot>=0.5.1,<1",
     "imagehash>=4.3.2,<5",
     "matplotlib>=3.8.1,<4.0",
+    "nrel-gaps>=0.8.11,<0.9",
     "numpy>=2.0.2,<3",
     "pandas>=2.1.2,<3.0",
     "pydantic>=2.4.2,<3.0",

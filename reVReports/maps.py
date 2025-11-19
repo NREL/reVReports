@@ -311,12 +311,12 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
         """Position legend for layouts with more than four scenarios"""
 
         fig.subplots_adjust(
-            left=0.05,
-            right=0.88,
-            top=0.92,
-            bottom=0.06,
-            hspace=0.2,
-            wspace=0.12,
+            left=0,
+            right=1,
+            top=1,
+            bottom=0,
+            wspace=0,
+            hspace=0,
         )
 
         if legend_axis is None:
@@ -331,23 +331,15 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
         legend.remove()
 
         axes_flat = ax.ravel()
+        used_axes = list(axes_flat[: self.num_scenarios])
         extra_axes = list(axes_flat[self.num_scenarios :])
 
-        legend_panel = None
         legend_cols = min(3, max(1, self.n_cols))
         legend_font_size = SMALL_SIZE
 
-        if extra_axes:
-            legend_panel = extra_axes[0]
-            legend_panel.set_axis_off()
-            legend_panel_position = legend_panel.get_position()
-            for extra_axis in extra_axes[1:]:
-                fig.delaxes(extra_axis)
-        else:
-            fig.subplots_adjust(right=0.82)
-            legend_panel_position = [0.84, 0.15, 0.12, 0.7]
-            legend_panel = fig.add_axes(legend_panel_position)
-            legend_panel.set_axis_off()
+        layout = self._layout_config()
+        self._position_axes(used_axes, layout)
+        legend_panel = self._prepare_legend_panel(fig, extra_axes, layout)
 
         legend_panel.legend(
             legend_handles,
@@ -364,6 +356,96 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
                 "weight": "bold",
             },
         )
+
+    def _layout_config(self):
+        """Return layout settings for tightly packed panels"""
+
+        left_margin = 0.002
+        bottom_margin = 0.006
+        top_margin = 0.995
+        legend_width = 0.095
+        legend_right_margin = 0.01
+        legend_gap = 0.003
+        legend_left = 1 - legend_right_margin - legend_width
+        content_right = legend_left - legend_gap
+        content_height = top_margin - bottom_margin
+        col_overlap = 0.06 if self.n_cols > 1 else 0.0
+        row_overlap = 0.06 if self.n_rows > 1 else 0.0
+
+        col_width = (
+            content_right - left_margin + col_overlap * (self.n_cols - 1)
+        ) / max(self.n_cols, 1)
+        row_height = (content_height + row_overlap * (self.n_rows - 1)) / max(
+            self.n_rows, 1
+        )
+
+        col_step = max(col_width - col_overlap, 0)
+        row_step = max(row_height - row_overlap, 0)
+
+        return {
+            "left_margin": left_margin,
+            "bottom_margin": bottom_margin,
+            "legend_left": legend_left,
+            "legend_width": legend_width,
+            "legend_bottom": bottom_margin,
+            "legend_height": content_height,
+            "col_width": col_width,
+            "row_height": row_height,
+            "col_step": col_step,
+            "row_step": row_step,
+        }
+
+    def _position_axes(self, panels, layout):
+        """Set subplot bounds for automatic layout"""
+
+        for idx, panel in enumerate(panels):
+            row, col = divmod(idx, self.n_cols)
+            left = layout["left_margin"] + col * layout["col_step"]
+            bottom = (
+                layout["bottom_margin"]
+                + (self.n_rows - 1 - row) * layout["row_step"]
+            )
+            panel.set_position(
+                [
+                    left,
+                    bottom,
+                    layout["col_width"],
+                    layout["row_height"],
+                ]
+            )
+
+    @staticmethod
+    def _prepare_legend_panel(fig, extra_axes, layout):
+        """Provide axis to render the automatic legend"""
+
+        legend_bottom = layout["legend_bottom"]
+        legend_height = layout["legend_height"]
+
+        if extra_axes:
+            legend_panel = extra_axes[0]
+            legend_panel.set_axis_off()
+            legend_panel.set_position(
+                [
+                    layout["legend_left"],
+                    legend_bottom,
+                    layout["legend_width"],
+                    legend_height,
+                ]
+            )
+            for extra_axis in extra_axes[1:]:
+                fig.delaxes(extra_axis)
+        else:
+            legend_panel = fig.add_axes(
+                [
+                    layout["legend_left"],
+                    legend_bottom,
+                    layout["legend_width"],
+                    legend_height,
+                ]
+            )
+            legend_panel.set_axis_off()
+
+        return legend_panel
 
 
 def generate_maps_from_config(config, out_path, dpi):

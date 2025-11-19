@@ -337,7 +337,9 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
         legend_cols = min(3, max(1, self.n_cols))
         legend_font_size = SMALL_SIZE
 
-        layout = self._layout_config()
+        has_extra_panel = bool(extra_axes)
+
+        layout = self._layout_config(has_extra_panel)
         self._position_axes(used_axes, layout)
         legend_panel = self._prepare_legend_panel(fig, extra_axes, layout)
 
@@ -357,42 +359,109 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
             },
         )
 
-    def _layout_config(self):
+    def _layout_config(self, has_extra_panel):
         """Return layout settings for tightly packed panels"""
+
+        base = self._base_dimensions(has_extra_panel)
+        dims = self._axis_dimensions(base)
+        legend = self._legend_geometry(has_extra_panel, base, dims)
+
+        return {
+            "left_margin": base["left_margin"],
+            "bottom_margin": base["bottom_margin"],
+            "legend_left": legend["legend_left"],
+            "legend_width": legend["legend_width"],
+            "legend_bottom": legend["legend_bottom"],
+            "legend_height": legend["legend_height"],
+            "col_width": dims["col_width"],
+            "row_height": dims["row_height"],
+            "col_step": dims["col_step"],
+            "row_step": dims["row_step"],
+            "legend_in_panel": has_extra_panel,
+        }
+
+    @staticmethod
+    def _base_dimensions(has_extra_panel):
+        """Calculate base margins for automatic layouts"""
 
         left_margin = 0.002
         bottom_margin = 0.006
-        top_margin = 0.995
-        legend_width = 0.095
-        legend_right_margin = 0.01
+        top_limit = 0.995
         legend_gap = 0.003
-        legend_left = 1 - legend_right_margin - legend_width
-        content_right = legend_left - legend_gap
-        content_height = top_margin - bottom_margin
+
+        if has_extra_panel:
+            content_right = 1 - 0.002
+            legend_left = None
+            legend_width = None
+        else:
+            legend_width = 0.095
+            legend_left = 1 - 0.01 - legend_width
+            content_right = legend_left - legend_gap
+
+        content_height = top_limit - bottom_margin
+
+        return {
+            "left_margin": left_margin,
+            "bottom_margin": bottom_margin,
+            "content_height": content_height,
+            "content_right": content_right,
+            "legend_left": legend_left,
+            "legend_width": legend_width,
+        }
+
+    def _axis_dimensions(self, base):
+        """Derive panel dimensions with controlled overlap"""
+
         col_overlap = 0.06 if self.n_cols > 1 else 0.0
         row_overlap = 0.06 if self.n_rows > 1 else 0.0
 
+        safe_cols = max(self.n_cols, 1)
+        safe_rows = max(self.n_rows, 1)
+
         col_width = (
-            content_right - left_margin + col_overlap * (self.n_cols - 1)
-        ) / max(self.n_cols, 1)
-        row_height = (content_height + row_overlap * (self.n_rows - 1)) / max(
-            self.n_rows, 1
-        )
+            base["content_right"]
+            - base["left_margin"]
+            + col_overlap * (self.n_cols - 1)
+        ) / safe_cols
+        row_height = (
+            base["content_height"] + row_overlap * (self.n_rows - 1)
+        ) / safe_rows
 
         col_step = max(col_width - col_overlap, 0)
         row_step = max(row_height - row_overlap, 0)
 
         return {
-            "left_margin": left_margin,
-            "bottom_margin": bottom_margin,
-            "legend_left": legend_left,
-            "legend_width": legend_width,
-            "legend_bottom": bottom_margin,
-            "legend_height": content_height,
             "col_width": col_width,
             "row_height": row_height,
             "col_step": col_step,
             "row_step": row_step,
+        }
+
+    def _legend_geometry(self, has_extra_panel, base, dims):
+        """Determine legend placement for automatic layouts"""
+
+        if has_extra_panel:
+            legend_index = self.num_scenarios
+            legend_col = legend_index % self.n_cols
+            legend_row = legend_index // self.n_cols
+            legend_left = base["left_margin"] + legend_col * dims["col_step"]
+            legend_bottom = (
+                base["bottom_margin"]
+                + (self.n_rows - 1 - legend_row) * dims["row_step"]
+            )
+            legend_width = dims["col_width"]
+            legend_height = dims["row_height"]
+        else:
+            legend_left = base["legend_left"]
+            legend_bottom = base["bottom_margin"]
+            legend_width = base["legend_width"]
+            legend_height = base["content_height"]
+
+        return {
+            "legend_left": legend_left,
+            "legend_bottom": legend_bottom,
+            "legend_width": legend_width,
+            "legend_height": legend_height,
         }
 
     def _position_axes(self, panels, layout):

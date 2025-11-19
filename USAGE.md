@@ -2,7 +2,7 @@
 `revReports` is intended to be used as a command-line tool that can easily and quickly produce standard report-quality graphics for reV supply curves. It currently has the following limitations:
 - technologies supported: `wind` and `pv`
 - Geographic limitations: `maps` command only works for supply curves for the continental US.
-- Number of supply curves: `maps` command can be run for 4 or fewer supply curves. The `plots` command does not have an upper limit, but has only been tested on up to 4 supply curves.
+- Number of supply curves: `maps` command supports any number of scenarios (best styling is applied for 4 or less). The `plots` command does not have an upper limit, but has only been tested on up to 4 supply curves.
 
 The remainder of this document provides detail on how to use the `reVReports` command-line interface.
 
@@ -25,7 +25,8 @@ Commands:
 ```
 
 ### Maps
-The `maps` command creates a set of about 5-10 maps summarizing key results from a set of supply curves. It is currently limited to mapping supply curves for the continental US and 4 or less scenarios.
+The `maps` command creates a set of about 5-10 maps summarizing key results from a set of supply curves. It is currently limited to mapping supply curves for the continental US.
+Scenario counts greater than four are supported, but will be arranged into a balanced grid automatically and may not be styled as nicely as scenario counts <= 4.
 
 This command can be run following the usage described below. See the [Configuration Files](#configuration-files) section for additional detail about the `--config-file` argument.
 ```cmd

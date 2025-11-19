@@ -18447,8 +18447,8 @@ packages:
   requires_python: '>=3.9'
 - pypi: ./
   name: revreports
-  version: 1.1.1.dev4+gf525b8ef6.d20251119
-  sha256: 097b487a11c0b615d5d6a2a7580da5500384c406e250fe65a13f4a04f8bb09df
+  version: 1.1.1.dev5+gd9c9261fa
+  sha256: 4b0b5efeb1b69e6378466bc462157fa9893b05cce28d64da2626b208ae8e1228
   requires_dist:
   - cartopy>=0.25.0,<0.26
   - click>=8.3.1,<9
@@ -18460,11 +18460,11 @@ packages:
   - numpy>=2.3.5,<3
   - pandas>=2.3.3,<3
   - pydantic>=2.12.4,<3
-  - pyproj
-  - seaborn
-  - shapely
-  - tabulate
-  - tqdm
+  - pyproj>=3.7.2,<4
+  - seaborn>=0.13.2,<0.14
+  - shapely>=2.1.2,<3
+  - tabulate>=0.9.0,<0.10
+  - tqdm>=4.67.1,<5
   - jupyter>=1.1.1,<2 ; extra == 'dev'
   - pipreqs>=0.4.13,<0.5 ; extra == 'dev'
   - ruff>=0.14.5,<0.15 ; extra == 'dev'

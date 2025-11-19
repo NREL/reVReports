@@ -2,6 +2,7 @@
 
 import logging
 from functools import cached_property
+from abc import ABC, abstractmethod
 
 import pandas as pd
 import numpy as np
@@ -78,7 +79,7 @@ class MapData:
         return scenario_dfs
 
 
-class BaseMapGenerator:
+class BaseMapGenerator(ABC):
     """Generate geospatial visualizations from prepared datasets"""
 
     def __init__(self, map_data):
@@ -197,6 +198,11 @@ class BaseMapGenerator:
                 out_image_path = out_directory / out_fp
                 fig.savefig(out_image_path, dpi=dpi, transparent=True)
                 plt.close(fig)
+
+    @abstractmethod
+    def _adjust_panel(self, fig, ax, map_settings, legend_axis):
+        """Adjust panel layout and legend for styling"""
+        raise NotImplementedError
 
 
 class ManualStyledMapGenerator(BaseMapGenerator):
@@ -341,7 +347,7 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
 
         layout = self._layout_config(has_extra_panel)
         self._position_axes(used_axes, layout)
-        legend_panel = self._prepare_legend_panel(fig, extra_axes, layout)
+        legend_panel = _prepare_legend_panel(fig, extra_axes, layout)
 
         legend_panel.legend(
             legend_handles,
@@ -362,7 +368,7 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
     def _layout_config(self, has_extra_panel):
         """Return layout settings for tightly packed panels"""
 
-        base = self._base_dimensions(has_extra_panel)
+        base = _base_dimensions(has_extra_panel)
         dims = self._axis_dimensions(base)
         legend = self._legend_geometry(has_extra_panel, base, dims)
 
@@ -378,35 +384,6 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
             "col_step": dims["col_step"],
             "row_step": dims["row_step"],
             "legend_in_panel": has_extra_panel,
-        }
-
-    @staticmethod
-    def _base_dimensions(has_extra_panel):
-        """Calculate base margins for automatic layouts"""
-
-        left_margin = 0.002
-        bottom_margin = 0.006
-        top_limit = 0.995
-        legend_gap = 0.003
-
-        if has_extra_panel:
-            content_right = 1 - 0.002
-            legend_left = None
-            legend_width = None
-        else:
-            legend_width = 0.095
-            legend_left = 1 - 0.01 - legend_width
-            content_right = legend_left - legend_gap
-
-        content_height = top_limit - bottom_margin
-
-        return {
-            "left_margin": left_margin,
-            "bottom_margin": bottom_margin,
-            "content_height": content_height,
-            "content_right": content_right,
-            "legend_left": legend_left,
-            "legend_width": legend_width,
         }
 
     def _axis_dimensions(self, base):
@@ -482,39 +459,6 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
                     layout["row_height"],
                 ]
             )
-
-    @staticmethod
-    def _prepare_legend_panel(fig, extra_axes, layout):
-        """Provide axis to render the automatic legend"""
-
-        legend_bottom = layout["legend_bottom"]
-        legend_height = layout["legend_height"]
-
-        if extra_axes:
-            legend_panel = extra_axes[0]
-            legend_panel.set_axis_off()
-            legend_panel.set_position(
-                [
-                    layout["legend_left"],
-                    legend_bottom,
-                    layout["legend_width"],
-                    legend_height,
-                ]
-            )
-            for extra_axis in extra_axes[1:]:
-                fig.delaxes(extra_axis)
-        else:
-            legend_panel = fig.add_axes(
-                [
-                    layout["legend_left"],
-                    legend_bottom,
-                    layout["legend_width"],
-                    legend_height,
-                ]
-            )
-            legend_panel.set_axis_off()
-
-        return legend_panel
 
 
 def generate_maps_from_config(config, out_path, dpi):
@@ -738,3 +682,65 @@ def configure_map_params(config):
             map_vars.pop(exclude_map)
 
     return cap_col, point_size, map_vars
+
+
+def _base_dimensions(has_extra_panel):
+    """Calculate base margins for automatic layouts"""
+
+    left_margin = 0.002
+    bottom_margin = 0.006
+    top_limit = 0.995
+    legend_gap = 0.003
+
+    if has_extra_panel:
+        content_right = 1 - 0.002
+        legend_left = None
+        legend_width = None
+    else:
+        legend_width = 0.095
+        legend_left = 1 - 0.01 - legend_width
+        content_right = legend_left - legend_gap
+
+    content_height = top_limit - bottom_margin
+
+    return {
+        "left_margin": left_margin,
+        "bottom_margin": bottom_margin,
+        "content_height": content_height,
+        "content_right": content_right,
+        "legend_left": legend_left,
+        "legend_width": legend_width,
+    }
+
+
+def _prepare_legend_panel(fig, extra_axes, layout):
+    """Provide axis to render the automatic legend"""
+
+    legend_bottom = layout["legend_bottom"]
+    legend_height = layout["legend_height"]
+
+    if extra_axes:
+        legend_panel = extra_axes[0]
+        legend_panel.set_axis_off()
+        legend_panel.set_position(
+            [
+                layout["legend_left"],
+                legend_bottom,
+                layout["legend_width"],
+                legend_height,
+            ]
+        )
+        for extra_axis in extra_axes[1:]:
+            fig.delaxes(extra_axis)
+    else:
+        legend_panel = fig.add_axes(
+            [
+                layout["legend_left"],
+                legend_bottom,
+                layout["legend_width"],
+                legend_height,
+            ]
+        )
+        legend_panel.set_axis_off()
+
+    return legend_panel

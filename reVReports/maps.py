@@ -19,6 +19,8 @@ from reVReports.exceptions import reVReportsValueError
 
 logger = logging.getLogger(__name__)
 
+MANUALLY_STYLED_SCENARIO_LIMIT = 4
+
 
 class MapData:
     """Prepare map inputs from scenario supply curve data"""
@@ -78,7 +80,7 @@ class MapData:
         return scenario_dfs
 
 
-class MapGenerator:
+class BaseMapGenerator:
     """Generate geospatial visualizations from prepared datasets"""
 
     def __init__(self, map_data):
@@ -95,6 +97,16 @@ class MapGenerator:
     def num_scenarios(self):
         """int: Number of configured scenarios"""
         return len(self._map_data.scenario_dfs)
+
+    @property
+    def n_cols(self):
+        """int: Number of columns in map output"""
+        return max(2, int(np.ceil(np.sqrt(self.num_scenarios))))
+
+    @property
+    def n_rows(self):
+        """int: Number of rows in map output"""
+        return int(np.ceil(self.num_scenarios / self.n_cols))
 
     def build_maps(
         self,
@@ -116,16 +128,19 @@ class MapGenerator:
             Output resolution for saved figures.
         point_size : float, optional
             Marker size for scenario points, by default 2.0.
+        prefix_outputs : bool, optional
+            Whether to prefix output filenames with 'map_',
+            by default ``False``.
         """
-        n_cols = 2
-        n_rows = int(np.ceil(self.num_scenarios / n_cols))
+        figsize = (max(13, 6.5 * self.n_cols), 4 * self.n_rows)
+
         logger.info("Creating maps")
         for map_var, map_settings in tqdm.tqdm(map_vars.items()):
             with plt.rc_context(RC_FONT_PARAMS):
                 fig, ax = plt.subplots(
-                    ncols=n_cols,
-                    nrows=n_rows,
-                    figsize=(13, 4 * n_rows),
+                    ncols=self.n_cols,
+                    nrows=self.n_rows,
+                    figsize=figsize,
                     subplot_kw={
                         "projection": gplt.crs.AlbersEqualArea(
                             central_longitude=BOUNDARIES.center_lon,
@@ -133,6 +148,8 @@ class MapGenerator:
                         )
                     },
                 )
+                ax = np.atleast_2d(ax)
+                legend_axis = None
                 for i, (scenario_name, scenario_df) in enumerate(
                     self._map_data
                 ):
@@ -171,8 +188,9 @@ class MapGenerator:
                     )
                     panel.patch.set_alpha(0)
                     panel.set_title(scenario_name, y=0.88)
+                    legend_axis = panel
 
-                self._adjust_panel(fig, ax, map_settings, n_rows)
+                self._adjust_panel(fig, ax, map_settings, legend_axis)
                 out_fp = (
                     f"map_{map_var}.png"
                     if prefix_outputs
@@ -182,8 +200,9 @@ class MapGenerator:
                 fig.savefig(out_image_path, dpi=dpi, transparent=True)
                 plt.close(fig)
 
-    def _adjust_panel(self, fig, ax, map_settings, n_rows):
-        """Adjust subplot layout and legend anchoring"""
+
+class ManualStyledMapGenerator(BaseMapGenerator):
+    def _adjust_panel(self, fig, ax, map_settings, legend_axis):
         n_panels = len(ax.ravel())
         min_xcoord = -0.04
         mid_xcoord = 0.465
@@ -207,20 +226,30 @@ class MapGenerator:
             ax.ravel()[0].set_position([-0.25, 0.0, 1, 1])
             ax.ravel()[1].set_position([0.27, 0.0, 1, 1])
 
-        self._correct_legend(
+        self._correct_legend_manual(
             fig,
             map_settings,
             ax,
             n_panels,
-            n_rows,
             mid_xcoord,
             min_ycoord,
+            legend_axis,
         )
 
-    def _correct_legend(
-        self, fig, map_settings, ax, n_panels, n_rows, mid_xcoord, min_ycoord
+    def _correct_legend_manual(
+        self,
+        fig,
+        map_settings,
+        ax,
+        n_panels,
+        mid_xcoord,
+        min_ycoord,
+        legend_axis,
     ):
         """Position the consolidated legend panel"""
+
+        if legend_axis is None:
+            return
 
         if self.num_scenarios < n_panels:
             extra_panel = ax.ravel()[-1]
@@ -233,14 +262,14 @@ class MapGenerator:
             legend_font_size = SMALL_SIZE
             legend_loc = "center left"
             legend_cols = 3
-            if n_rows == 2:  # noqa: PLR2004
+            if self.n_rows == 2:  # noqa: PLR2004
                 legend_panel_position = [
                     mid_xcoord - 0.06,
                     min_ycoord - 0.03,
                     0.2,
                     0.2,
                 ]
-            elif n_rows == 1:
+            elif self.n_rows == 1:
                 legend_panel_position = [
                     mid_xcoord - 0.06,
                     min_ycoord + 0.03,
@@ -248,7 +277,7 @@ class MapGenerator:
                     0.2,
                 ]
 
-        legend = fig.axes[-1].get_legend()
+        legend = legend_axis.get_legend()
         legend_texts = [t.get_text() for t in legend.texts]
         legend_handles = legend.legend_handles
         legend.remove()
@@ -272,6 +301,85 @@ class MapGenerator:
                 "weight": "bold",
             },
         )
+
+
+class AutomaticallyStyledMapGenerator(BaseMapGenerator):
+    def _adjust_panel(self, fig, ax, map_settings, legend_axis):
+        """Position legend for layouts with more than four scenarios"""
+
+        fig.subplots_adjust(
+            left=0.05,
+            right=0.88,
+            top=0.92,
+            bottom=0.06,
+            hspace=0.2,
+            wspace=0.12,
+        )
+
+        if legend_axis is None:
+            return
+
+        legend = legend_axis.get_legend()
+        if legend is None:
+            return
+
+        legend_texts = [t.get_text() for t in legend.texts]
+        legend_handles = legend.legend_handles
+        legend.remove()
+
+        axes_flat = ax.ravel()
+        extra_axes = list(axes_flat[self.num_scenarios :])
+
+        legend_panel = None
+        legend_cols = min(3, max(1, self.n_cols))
+        legend_font_size = SMALL_SIZE
+
+        if extra_axes:
+            legend_panel = extra_axes[0]
+            legend_panel.set_axis_off()
+            legend_panel_position = legend_panel.get_position()
+            for extra_axis in extra_axes[1:]:
+                fig.delaxes(extra_axis)
+        else:
+            fig.subplots_adjust(right=0.82)
+            legend_panel_position = [0.84, 0.15, 0.12, 0.7]
+            legend_panel = fig.add_axes(legend_panel_position)
+            legend_panel.set_axis_off()
+
+        legend_panel.legend(
+            legend_handles,
+            legend_texts,
+            frameon=False,
+            loc="center",
+            title=map_settings.get("legend_title"),
+            ncol=legend_cols,
+            handletextpad=-0.1,
+            columnspacing=0.4,
+            fontsize=legend_font_size,
+            title_fontproperties={
+                "size": legend_font_size,
+                "weight": "bold",
+            },
+        )
+
+
+def generate_maps_from_config(config, out_path, dpi):
+    cap_col, point_size, map_vars = configure_map_params(config)
+
+    map_data = MapData(config, cap_col=cap_col)
+
+    if len(map_data.scenario_dfs) <= MANUALLY_STYLED_SCENARIO_LIMIT:
+        plotter = ManualStyledMapGenerator(map_data)
+    else:
+        plotter = AutomaticallyStyledMapGenerator(map_data)
+
+    plotter.build_maps(
+        map_vars,
+        out_path,
+        dpi,
+        point_size=point_size,
+        prefix_outputs=config.prefix_outputs,
+    )
 
 
 def configure_map_params(config):

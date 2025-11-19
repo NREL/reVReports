@@ -153,6 +153,7 @@ def maps(config_file, out_path, dpi):
     config = _load_config(config_file)
 
     out_path = config_file.parent if out_path is None else Path(out_path)
+    out_path.mkdir(parents=False, exist_ok=True)
 
     generate_maps_from_config(config, out_path, dpi)
 

@@ -16,13 +16,12 @@ from reVReports import characterizations
 from reVReports.fonts import SANS_SERIF, SANS_SERIF_BOLD
 from reVReports import logs
 from reVReports.plots import PlotData, PlotGenerator, make_bar_plot
-from reVReports.maps import MapData, MapGenerator, configure_map_params
+from reVReports.maps import generate_maps_from_config
 from reVReports.utilities.plots import configure_matplotlib, DPI
 
 font_manager.fontManager.ttflist.extend([SANS_SERIF, SANS_SERIF_BOLD])
 
 LOGGER = logs.get_logger("reVReports", "INFO")
-MAX_NUM_SCENARIOS = 4
 
 configure_matplotlib()
 
@@ -153,25 +152,9 @@ def maps(config_file, out_path, dpi):
 
     config = _load_config(config_file)
 
-    n_scenarios = len(config.scenarios)
-    if n_scenarios > MAX_NUM_SCENARIOS:
-        LOGGER.error("Cannot map more than %d scenarios.", MAX_NUM_SCENARIOS)
-        sys.exit(1)
-
     out_path = config_file.parent if out_path is None else Path(out_path)
-    out_path.mkdir(parents=False, exist_ok=True)
 
-    cap_col, point_size, map_vars = configure_map_params(config)
-
-    map_data = MapData(config, cap_col=cap_col)
-    plotter = MapGenerator(map_data)
-    plotter.build_maps(
-        map_vars,
-        out_path,
-        dpi,
-        point_size=point_size,
-        prefix_outputs=config.prefix_outputs,
-    )
+    generate_maps_from_config(config, out_path, dpi)
 
     LOGGER.info("Command completed successfully.")
 

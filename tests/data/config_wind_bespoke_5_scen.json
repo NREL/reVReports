@@ -1,0 +1,39 @@
+{
+  "exclude_maps": [
+    "losses_wakes_pct"
+  ],
+  "lcoe_all_in_col": "lcoe_all_in_usd_per_mwh",
+  "lcoe_site_col": "lcoe_site_usd_per_mwh",
+  "plots": {
+    "site_lcoe_max": 90,
+    "total_lcoe_max": 120
+  },
+  "scenarios": [
+    {
+      "color": "#4a1486",
+      "name": "Open Access",
+      "source": "supply_curves/wind_bespoke/open_access_sample.csv"
+    },
+    {
+      "color": "#6a51a3",
+      "name": "Reference Access",
+      "source": "supply_curves/wind_bespoke/reference_access_sample.csv"
+    },
+    {
+      "color": "#807dba",
+      "name": "Limited Access",
+      "source": "supply_curves/wind_bespoke/limited_access_sample.csv"
+    },
+    {
+      "color": "#9e9ac8",
+      "name": "Extra Limited Access",
+      "source": "supply_curves/wind_bespoke/limited_access_sample.csv"
+    },
+    {
+      "color": "#bcbddc",
+      "name": "Reference Sensitivity",
+      "source": "supply_curves/wind_bespoke/reference_access_sample.csv"
+    }
+  ],
+  "tech": "wind"
+}

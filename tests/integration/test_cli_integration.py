@@ -83,6 +83,8 @@ def test_plots_integration(
         "config_osw.json",
         "config_pv.json",
         "config_wind_bespoke.json",
+        "config_wind_bespoke_6_scen.json",
+        "config_wind_bespoke_5_scen.json",
         "config_wind_bespoke_4_scen.json",
         "config_wind_bespoke_2_scen.json",
         "config_wind_bespoke_1_scen.json",

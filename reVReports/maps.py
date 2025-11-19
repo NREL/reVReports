@@ -56,8 +56,6 @@ class MapData:
             self._config.scenarios, total=len(self._config.scenarios)
         ):
             scenario_df = pd.read_csv(scenario.source)
-
-            # drop zero capacity sites
             scenario_sub_df = scenario_df[
                 scenario_df["capacity_ac_mw"] > 0
             ].copy()
@@ -202,7 +200,10 @@ class BaseMapGenerator:
 
 
 class ManualStyledMapGenerator(BaseMapGenerator):
+    """Apply manual layout rules for small scenario counts"""
+
     def _adjust_panel(self, fig, ax, map_settings, legend_axis):
+        """Adjust panel layout and legend for manual styling"""
         n_panels = len(ax.ravel())
         min_xcoord = -0.04
         mid_xcoord = 0.465
@@ -304,6 +305,8 @@ class ManualStyledMapGenerator(BaseMapGenerator):
 
 
 class AutomaticallyStyledMapGenerator(BaseMapGenerator):
+    """Apply automatic layout rules for larger scenario grids"""
+
     def _adjust_panel(self, fig, ax, map_settings, legend_axis):
         """Position legend for layouts with more than four scenarios"""
 
@@ -364,6 +367,17 @@ class AutomaticallyStyledMapGenerator(BaseMapGenerator):
 
 
 def generate_maps_from_config(config, out_path, dpi):
+    """Create map graphics for user-configured scenarios
+
+    Parameters
+    ----------
+    config : object
+        Map configuration with scenario metadata.
+    out_path : pathlib.Path
+        Directory for generated map outputs.
+    dpi : int
+        Output resolution for saved figures.
+    """
     cap_col, point_size, map_vars = configure_map_params(config)
 
     map_data = MapData(config, cap_col=cap_col)
